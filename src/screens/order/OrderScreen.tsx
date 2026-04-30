@@ -3,16 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Image,
   TouchableOpacity,
   Dimensions,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
-import LottieView from 'lottie-react-native';
 import Animated, { 
   FadeInRight, 
   FadeInDown, 
@@ -20,10 +17,19 @@ import Animated, {
   FadeOutLeft 
 } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { fonts } from '../../utils/fonts';
 import { hapticFeedback } from '../../utils/haptics';
 import LottieAnimation from '../../components/LottieAnimation';
 import EmptyCartAnimation from '../../assets/animations/EmptyCart.json';
+import PremiumHeader from '../../components/PremiumHeader';
+import { useCart } from '../../store/cartStore';
+import { CartItem } from '../../store/slices/cartSlice';
+
+import { useAuth } from '../../hooks/useAuth';
+import { useCreateOrder } from '../../hooks/useOrders';
+import { useToast } from '../../context/ToastContext';
 
 const { width } = Dimensions.get('window');
 
@@ -37,177 +43,429 @@ const COLORS = {
   lightGray: '#F0F0F0',
 };
 
-const MOCK_CART_ITEMS = [
-  {
-    id: '1',
-    name: 'Special Ghotki Peda (1kg)',
-    price: 1200,
-    quantity: 1,
-    image: 'https://images.unsplash.com/photo-1589113103503-49673c683669?q=80&w=400&auto=format',
-    artisan: 'Haji Adam Sweets',
-  },
-  {
-    id: '2',
-    name: 'Mirror Work Sindhi Topi',
-    price: 850,
-    quantity: 2,
-    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=400&auto=format',
-    artisan: 'Local Craftsmen',
-  },
-];
-
-import { Badge, IconButton, Button as PaperButton, Divider } from 'react-native-paper';
-
 const JholiScreen: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const navigation = useNavigation();
   const isRTL = i18n.language === 'sd';
-  const [cartItems, setCartItems] = useState(MOCK_CART_ITEMS);
+  const { items: cartItems, updateQuantity, removeFromCart, totalPrice: totalAmount, clearCart } = useCart();
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const { mutate: createOrder, isPending: isCreatingOrder } = useCreateOrder();
+  
+  let tabBarHeight = 0;
+  try {
+    tabBarHeight = useBottomTabBarHeight();
+  } catch (e) {
+    tabBarHeight = 0;
+  }
 
-  const updateQuantity = (id: string, delta: number) => {
-    hapticFeedback.light(); // Subtle feedback on tap
-    setCartItems(prev => prev.map(item => 
-      item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-    ));
+  const handleCheckout = () => {
+    if (!user) {
+      showToast({ message: t('common.pleaseLogin'), type: 'info' });
+      return;
+    }
+
+    if (cartItems.length === 0) return;
+
+    const artisanId = cartItems[0].product.artisan_id || cartItems[0].product.artisanId || '';
+
+    createOrder({
+      customer_id: user.id,
+      artisan_id: artisanId,
+      items: cartItems,
+      total_amount: totalAmount + 150,
+      shipping_address: { street: 'Sample Street', city: 'Karachi', state: 'Sindh', country: 'Pakistan' },
+      phone: '03001234567',
+      notes: 'Please pack carefully.'
+    }, {
+      onSuccess: () => {
+        clearCart();
+        showToast({ message: t('jholi.orderSuccess', { defaultValue: 'Order placed successfully!' }), type: 'success' });
+      },
+      onError: (error) => {
+        showToast({ message: error.message, type: 'error' });
+      }
+    });
   };
 
-  const removeItem = (id: string) => {
-    hapticFeedback.medium(); // Slightly stronger feedback for delete
-    setCartItems(prev => prev.filter(item => item.id !== id));
-  };
+  const calculateTotal = () => totalAmount;
 
-  const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
-
-  const renderItem = ({ item, index }: { item: typeof MOCK_CART_ITEMS[0]; index: number }) => (
+  const renderItem = ({ item, index }: { item: CartItem; index: number }) => (
     <Animated.View 
       entering={FadeInRight.delay(index * 100).springify()}
       exiting={FadeOutLeft}
       layout={Layout.springify()}
-      className={`bg-white rounded-3xl p-4 mb-4 flex-row items-center shadow-sm elevation-2 ${isRTL ? 'flex-row-reverse' : ''}`}
+      style={styles.cartItemCard}
     >
-      <View className="w-20 h-20 rounded-2xl overflow-hidden bg-gray-100">
-        <Image source={{ uri: item.image }} className="w-full h-full" resizeMode="cover" />
-      </View>
-      
-      <View className={`flex-1 mx-4 ${isRTL ? 'items-end' : 'items-start'}`}>
-        <Text className="text-[14px] text-[#1A1A1A]" style={{ fontFamily: fonts.poppins.bold }} numberOfLines={1}>{item.name}</Text>
-        <Text className="text-[11px] text-[#757575]" style={{ fontFamily: fonts.poppins.regular }}>{t('common.by')} {item.artisan}</Text>
-        <Text className="text-[16px] text-[#C5A059] mb-2" style={{ fontFamily: fonts.poppins.bold }}>{t('jholi.currency')} {item.price}</Text>
-        
-        <View className="flex-row items-center bg-gray-100 rounded-xl p-1">
-          <TouchableOpacity 
-            onPress={() => updateQuantity(item.id, -1)}
-            className="w-7 h-7 bg-white rounded-lg justify-center items-center shadow-sm"
-          >
-            <Icon name="remove" size={14} color={COLORS.primary} />
-          </TouchableOpacity>
-          <Text className="text-[14px] text-[#1A1A1A] mx-3" style={{ fontFamily: fonts.poppins.bold }}>{item.quantity}</Text>
-          <TouchableOpacity 
-            onPress={() => updateQuantity(item.id, 1)}
-            className="w-7 h-7 bg-white rounded-lg justify-center items-center shadow-sm"
-          >
-            <Icon name="add" size={14} color={COLORS.primary} />
-          </TouchableOpacity>
+      <View style={[styles.itemRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={styles.imageContainer}>
+          <Image 
+            source={(() => {
+              const img = item.product.image_url || item.product.image || (Array.isArray(item.product.images) ? item.product.images[0] : null);
+              if (!img) return { uri: 'https://via.placeholder.com/150' };
+              return typeof img === 'string' ? { uri: img } : img;
+            })()} 
+            style={styles.productImage}
+            resizeMode="cover" 
+          />
         </View>
+
+        <View style={[styles.itemDetails, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+          <Text style={styles.itemName} numberOfLines={1}>{item.product.name}</Text>
+          <Text style={styles.artisanName}>{t('common.by')} {item.product.artisan_name || 'Sindhi Artisan'}</Text>
+          <Text style={styles.itemPrice}>{t('jholi.currency')} {item.product.price}</Text>
+          
+          <View style={styles.quantityControl}>
+            <TouchableOpacity 
+              onPress={() => {
+                hapticFeedback.light();
+                updateQuantity(item.product.id, item.quantity - 1);
+              }}
+              style={styles.quantityBtn}
+            >
+              <Icon name="remove" size={14} color={COLORS.primary} />
+            </TouchableOpacity>
+            <Text style={styles.quantityText}>{item.quantity}</Text>
+            <TouchableOpacity 
+              onPress={() => {
+                hapticFeedback.light();
+                updateQuantity(item.product.id, item.quantity + 1);
+              }}
+              style={styles.quantityBtn}
+            >
+              <Icon name="add" size={14} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <TouchableOpacity 
+          onPress={() => {
+            hapticFeedback.medium();
+            removeFromCart(item.product.id);
+          }}
+          style={styles.deleteBtn}
+        >
+          <Icon name="trash-outline" size={20} color="#E57373" />
+        </TouchableOpacity>
       </View>
-      
-      <IconButton 
-        icon="trash-can-outline" 
-        iconColor={COLORS.gray} 
-        size={20} 
-        onPress={() => removeItem(item.id)} 
-      />
     </Animated.View>
   );
 
-  return (
-    <SafeAreaView className="flex-1 bg-[#FAF9F6]" edges={['top']}>
-      {/* Header */}
-      <View className={`px-6 pt-5 mb-5 flex-row justify-between items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
-        <Text className="text-[32px] text-[#800000] tracking-widest uppercase" style={{ fontFamily: fonts.bebasNeue.bold }}>
-          {t('jholi.title')}
-        </Text>
-        <Badge className="bg-[#800000]/10 text-[#800000] px-3 py-1 rounded-full text-[12px]" size={24} style={{ fontFamily: fonts.poppins.bold }}>
-          {`${cartItems.length} ${t('jholi.items')}`}
-        </Badge>
+  const renderFooter = () => (
+    <Animated.View 
+      entering={FadeInDown.delay(200).springify()}
+      style={styles.scrollFooter}
+    >
+      <View style={styles.summaryBox}>
+        <View style={[styles.summaryRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <Text style={styles.summaryLabel}>{t('jholi.subtotal')}</Text>
+          <Text style={styles.summaryValue}>{t('jholi.currency')} {calculateTotal()}</Text>
+        </View>
+        <View style={[styles.summaryRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <Text style={styles.summaryLabel}>{t('jholi.delivery')}</Text>
+          <Text style={styles.summaryValue}>{t('jholi.currency')} 150</Text>
+        </View>
+        
+        <View style={styles.divider} />
+        
+        <View style={[styles.totalRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <Text style={styles.totalLabel}>{t('jholi.totalJholi')}</Text>
+          <Text style={styles.totalValue}>{t('jholi.currency')} {calculateTotal() + 150}</Text>
+        </View>
       </View>
 
+      <TouchableOpacity 
+        activeOpacity={0.9} 
+        onPress={handleCheckout}
+        disabled={isCreatingOrder}
+        style={styles.checkoutBtnContainer}
+      >
+        <LinearGradient
+          colors={[COLORS.primary, '#4A0000']}
+          style={styles.checkoutBtn}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {isCreatingOrder ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <View style={[styles.btnInner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={styles.btnText}>{t('jholi.checkout')}</Text>
+              <Icon name={isRTL ? "arrow-back" : "arrow-forward"} size={18} color="white" style={{ marginHorizontal: 6 }} />
+            </View>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+      
+      <View style={{ height: tabBarHeight + 20 }} />
+    </Animated.View>
+  );
+
+  const HeaderContent = () => (
+    <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+      <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+        <Text style={styles.headerTitle}>{t('jholi.title')}</Text>
+        <View style={styles.badgeContainer}>
+          <Text style={styles.badgeText}>{`${cartItems.length} ${t('jholi.items')}`}</Text>
+        </View>
+      </View>
+      <TouchableOpacity 
+        onPress={() => navigation.navigate('OrderHistory' as never)}
+        style={styles.historyBtn}
+      >
+        <Icon name="receipt-outline" size={24} color="white" />
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <PremiumHeader 
+      headerContent={<HeaderContent />}
+      height={160}
+      overlap={30}
+    >
       {cartItems.length > 0 ? (
-        <>
-          <FlatList
-            data={cartItems}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 250 }}
-            showsVerticalScrollIndicator={false}
-          />
-
-          {/* Checkout Section */}
-          <Animated.View 
-            entering={FadeInDown.delay(400).springify()}
-            className="absolute bottom-0 w-full bg-white rounded-t-[35px] p-8 shadow-lg elevation-20"
-          >
-            <View className={`flex-row justify-between mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <Text className="text-[14px] text-[#757575]" style={{ fontFamily: fonts.poppins.regular }}>{t('jholi.subtotal')}</Text>
-              <Text className="text-[14px] text-[#1A1A1A]" style={{ fontFamily: fonts.poppins.bold }}>{t('jholi.currency')} {calculateTotal()}</Text>
-            </View>
-            <View className={`flex-row justify-between mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <Text className="text-[14px] text-[#757575]" style={{ fontFamily: fonts.poppins.regular }}>{t('jholi.delivery')}</Text>
-              <Text className="text-[14px] text-[#1A1A1A]" style={{ fontFamily: fonts.poppins.bold }}>{t('jholi.currency')} 150</Text>
-            </View>
-            
-            <Divider className="mb-4 bg-gray-100" />
-            
-            <View className={`flex-row justify-between items-center mb-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <Text className="text-[18px] text-[#1A1A1A]" style={{ fontFamily: fonts.poppins.bold }}>{t('jholi.totalJholi')}</Text>
-              <Text className="text-[22px] text-[#800000]" style={{ fontFamily: fonts.poppins.bold }}>{t('jholi.currency')} {calculateTotal() + 150}</Text>
-            </View>
-
-            <TouchableOpacity activeOpacity={0.9} className="rounded-2xl overflow-hidden">
-              <LinearGradient
-                colors={[COLORS.primary, '#4A0000']}
-                className={`py-4 flex-row justify-center items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Text className="text-white text-[16px] tracking-wider" style={{ fontFamily: fonts.poppins.bold }}>{t('jholi.checkout')}</Text>
-                <Icon name={isRTL ? "arrow-back" : "arrow-forward"} size={20} color="white" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-        </>
+        <Animated.FlatList
+          data={cartItems}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.product.id}
+          contentContainerStyle={styles.listPadding}
+          showsVerticalScrollIndicator={false}
+          itemLayoutAnimation={Layout.springify()}
+          ListFooterComponent={renderFooter}
+        />
       ) : (
-        <View className="flex-1 justify-center items-center px-8">
+        <View style={styles.emptyContainer}>
           <LottieAnimation
             source={EmptyCartAnimation}
-            size={280}
+            size={200}
             autoPlay={true}
             loop={true}
           />
-          <Text className="text-[32px] text-[#800000] mt-[-30px] text-center uppercase" style={{ fontFamily: fonts.bebasNeue.bold }}>
-            {t('jholi.emptyTitle') || 'KHALI JHOLI!'}
-          </Text>
-          <Text className="text-[14px] text-[#757575] text-center mt-2 mb-8" style={{ fontFamily: fonts.poppins.regular }}>
+          <Text style={styles.emptyTitle}>{t('jholi.emptyTitle') || 'KHALI JHOLI!'}</Text>
+          <Text style={styles.emptySubtitle}>
             {t('jholi.emptySubtitle') || 'Add some authentic Sindhi crafts to start your collection!'}
           </Text>
-          <PaperButton 
-            mode="contained" 
-            onPress={() => {}} 
-            buttonColor={COLORS.secondary}
-            className="rounded-xl px-4"
-            labelStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
+          <TouchableOpacity 
+            style={styles.exploreBtn}
+            onPress={() => navigation.navigate('Bazaar' as never)}
           >
-            {t('jholi.exploreBazaar')}
-          </PaperButton>
+            <Text style={styles.exploreText}>{t('jholi.exploreBazaar')}</Text>
+          </TouchableOpacity>
         </View>
       )}
-    </SafeAreaView>
+    </PremiumHeader>
   );
 };
 
 const styles = StyleSheet.create({
-  // NativeWind handles the styles
+  headerRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontFamily: fonts.bebasNeue.bold,
+    color: 'white',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  badgeContainer: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 20,
+    marginTop: 2,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 11,
+    fontFamily: fonts.poppins.bold,
+  },
+  historyBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listPadding: {
+    padding: 20,
+    paddingTop: 25,
+  },
+  cartItemCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  itemRow: {
+    alignItems: 'center',
+  },
+  imageContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 15,
+    overflow: 'hidden',
+    backgroundColor: COLORS.lightGray,
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  itemDetails: {
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  itemName: {
+    fontSize: 14,
+    fontFamily: fonts.poppins.bold,
+    color: COLORS.dark,
+  },
+  artisanName: {
+    fontSize: 11,
+    fontFamily: fonts.poppins.regular,
+    color: COLORS.gray,
+    marginBottom: 2,
+  },
+  itemPrice: {
+    fontSize: 15,
+    fontFamily: fonts.poppins.bold,
+    color: COLORS.secondary,
+    marginBottom: 8,
+  },
+  quantityControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 10,
+    padding: 3,
+    alignSelf: 'flex-start',
+  },
+  quantityBtn: {
+    width: 24,
+    height: 24,
+    backgroundColor: 'white',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quantityText: {
+    fontSize: 13,
+    fontFamily: fonts.poppins.bold,
+    color: COLORS.dark,
+    marginHorizontal: 10,
+  },
+  deleteBtn: {
+    padding: 6,
+  },
+  scrollFooter: {
+    marginTop: 10,
+    paddingBottom: 20,
+  },
+  summaryBox: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  summaryRow: {
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    fontFamily: fonts.poppins.regular,
+    color: COLORS.gray,
+  },
+  summaryValue: {
+    fontSize: 13,
+    fontFamily: fonts.poppins.bold,
+    color: COLORS.dark,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F5F5F5',
+    marginVertical: 10,
+  },
+  totalRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontFamily: fonts.poppins.bold,
+    color: COLORS.dark,
+  },
+  totalValue: {
+    fontSize: 18,
+    fontFamily: fonts.poppins.bold,
+    color: COLORS.primary,
+  },
+  checkoutBtnContainer: {
+    borderRadius: 15,
+    overflow: 'hidden',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  checkoutBtn: {
+    paddingVertical: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  btnInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnText: {
+    color: 'white',
+    fontSize: 15,
+    fontFamily: fonts.poppins.bold,
+    letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+    paddingTop: 60,
+  },
+  emptyTitle: {
+    fontSize: 28,
+    fontFamily: fonts.bebasNeue.bold,
+    color: COLORS.primary,
+    marginTop: 20,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.poppins.regular,
+    color: COLORS.gray,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 25,
+  },
+  exploreBtn: {
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 15,
+  },
+  exploreText: {
+    color: 'white',
+    fontFamily: fonts.poppins.bold,
+    fontSize: 14,
+  },
 });
 
 export default JholiScreen;

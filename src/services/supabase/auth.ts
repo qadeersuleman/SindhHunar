@@ -1,6 +1,13 @@
 import { supabase } from './client';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { GOOGLE_CLIENT_ID } from '../../config/env';
 import type { Tables } from './client';
+
+GoogleSignin.configure({
+  webClientId: GOOGLE_CLIENT_ID,
+  scopes: ['profile', 'email'],
+});
 
 export interface User {
   id: string;
@@ -9,6 +16,7 @@ export interface User {
   avatar_url?: string;
   phone?: string;
   role?: 'customer' | 'artisan' | 'admin';
+  email_confirmed_at?: string;
 }
 
 export type Profile = Tables['profiles']['Row'];
@@ -50,6 +58,65 @@ export const signIn = async (email: string, password: string): Promise<AuthRespo
     return { user: data.user as User, error: null };
   } catch (error) {
     return { user: null, error: error as Error };
+  }
+};
+
+export const signInWithOtp = async (email: string): Promise<{ error: Error | null }> => {
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        // This will send a 6-digit code if the provider is configured for it, 
+        // or a magic link by default.
+        shouldCreateUser: true,
+      },
+    });
+    if (error) throw error;
+    return { error: null };
+  } catch (error) {
+    return { error: error as Error };
+  }
+};
+
+export const verifyOtp = async (email: string, token: string, type: 'magiclink' | 'signup' | 'recovery' | 'email_change' = 'magiclink'): Promise<AuthResponse> => {
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type,
+    });
+    if (error) throw error;
+    return { user: data.user as User, error: null };
+  } catch (error) {
+    return { user: null, error: error as Error };
+  }
+};
+
+export const signInWithGoogle = async (): Promise<AuthResponse> => {
+  try {
+    await GoogleSignin.hasPlayServices();
+    const userInfo = await GoogleSignin.signIn();
+    
+    if (userInfo.data?.idToken) {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: userInfo.data.idToken,
+      });
+      if (error) throw error;
+      return { user: data.user as User, error: null };
+    } else {
+      throw new Error('No ID token present!');
+    }
+  } catch (error: any) {
+    if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+      return { user: null, error: new Error('User cancelled the login flow') };
+    } else if (error.code === statusCodes.IN_PROGRESS) {
+      return { user: null, error: new Error('Sign in is in progress already') };
+    } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+      return { user: null, error: new Error('Play services not available or outdated') };
+    } else {
+      return { user: null, error: error as Error };
+    }
   }
 };
 

@@ -1,39 +1,87 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../../components/layout/Header';
 import { fonts } from '../../utils/fonts';
-import { Card as PaperCard, Button as PaperButton, Badge as PaperBadge, List, IconButton } from 'react-native-paper';
+import { Card as PaperCard, Button as PaperButton, Badge as PaperBadge, List } from 'react-native-paper';
+import { useAuth } from '../../hooks/useAuth';
+import { useProfile } from '../../hooks/useProfile';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { SellerStackParamList } from '../../navigation/SellerNavigator';
+import { supabase } from '../../services/supabase/client';
 
-interface SellerDashboardProps {
-  sellerData: {
-    name: string;
-    totalProducts: number;
-    totalOrders: number;
-    totalRevenue: number;
-    rating: number;
-  };
-  onAddProduct?: () => void;
-  onViewOrders?: () => void;
-  onViewProducts?: () => void;
-  onEditProfile?: () => void;
-  onLogout?: () => void;
-}
+export const SellerDashboard: React.FC = () => {
+  const { user, logout } = useAuth();
+  const { data: profile, isLoading: isProfileLoading } = useProfile(user?.id);
+  const navigation = useNavigation<NativeStackNavigationProp<SellerStackParamList>>();
 
-const SellerDashboard: React.FC<SellerDashboardProps> = ({
-  sellerData,
-  onAddProduct,
-  onViewOrders,
-  onViewProducts,
-  onEditProfile,
-  onLogout,
-}) => {
-  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    totalOrders: 0,
+    totalRevenue: 0,
+    rating: 4.8, // Mocked until reviews are implemented
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
-  const StatCard = ({ title, value, subtitle }: { title: string; value: string; subtitle: string }) => (
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!user) return;
+      try {
+        // 1. First fetch the artisan record for this user
+        const { data: artisanData, error: artisanError } = await supabase
+          .from('artisans')
+          .select('id')
+          .eq('owner_id', user.id)
+          .single();
+
+        if (artisanError || !artisanData) {
+          console.error('Artisan profile not found for stats');
+          setStatsLoading(false);
+          return;
+        }
+
+        const artisanId = artisanData.id;
+
+        // 2. Fetch products count using correct artisanId
+        const { count: productsCount } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('artisan_id', artisanId);
+
+        // 3. Fetch orders and revenue using correct artisanId and column name
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('id, total_amount')
+          .eq('artisan_id', artisanId);
+
+        const revenue = orders?.reduce((acc, order) => acc + (order.total_amount || 0), 0) || 0;
+
+        setStats({
+          totalProducts: productsCount || 0,
+          totalOrders: orders?.length || 0,
+          totalRevenue: revenue,
+          rating: 4.8,
+        });
+      } catch (error) {
+        console.error('Error fetching seller stats:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [user]);
+
+  const StatCard = ({ title, value, subtitle, loading }: { title: string; value: string; subtitle: string; loading: boolean }) => (
     <PaperCard className="flex-1 items-center p-4 bg-white rounded-2xl elevation-2 shadow-sm">
       <Text className="text-[14px] text-gray-500 mb-2" style={{ fontFamily: fonts.poppins.medium }}>{title}</Text>
-      <Text className="text-[24px] text-[#800000]" style={{ fontFamily: fonts.poppins.bold }}>{value}</Text>
+      {loading ? (
+        <ActivityIndicator size="small" color="#800000" className="my-1" />
+      ) : (
+        <Text className="text-[24px] text-[#800000]" style={{ fontFamily: fonts.poppins.bold }}>{value}</Text>
+      )}
       <Text className="text-[12px] text-gray-400" style={{ fontFamily: fonts.poppins.regular }}>{subtitle}</Text>
     </PaperCard>
   );
@@ -47,12 +95,36 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({
       />
       
       <ScrollView className="flex-1 px-4">
-        <View className="bg-white p-6 rounded-3xl mb-6 items-center shadow-sm elevation-1 mt-4">
-          <Text className="text-[16px] text-gray-500 mb-1" style={{ fontFamily: fonts.poppins.regular }}>Welcome back,</Text>
-          <Text className="text-[24px] text-[#1A1A1A] mb-3" style={{ fontFamily: fonts.poppins.bold }}>{sellerData.name}</Text>
-          <View className="flex-row items-center gap-2">
-            <Text className="text-[16px] text-[#C5A059]" style={{ fontFamily: fonts.poppins.bold }}>⭐ {sellerData.rating.toFixed(1)}</Text>
-            <PaperBadge className="bg-green-100 text-green-700 px-3 py-0.5 h-6 justify-center rounded-full" style={{ fontFamily: fonts.poppins.bold }}>Verified Seller</PaperBadge>
+        <View className="bg-white p-6 rounded-3xl mb-6 shadow-sm elevation-1 mt-4 items-center">
+          <View className="w-[85px] h-[85px] rounded-full overflow-hidden bg-gray-100 border-2 border-[#C5A059]/30 mb-4">
+            {profile?.avatar_url ? (
+              <Image 
+                source={{ uri: profile.avatar_url }} 
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+            ) : (
+              <View className="flex-1 justify-center items-center bg-[#800000]/5">
+                <Icon name="person" size={45} color="#800000" />
+              </View>
+            )}
+          </View>
+
+          <View className="items-center">
+            <Text className="text-[14px] text-gray-500" style={{ fontFamily: fonts.poppins.regular }}>Welcome back,</Text>
+            {isProfileLoading ? (
+              <ActivityIndicator size="small" color="#1A1A1A" style={{ marginVertical: 4 }} />
+            ) : (
+              <Text className="text-[24px] text-[#1A1A1A]" style={{ fontFamily: fonts.poppins.bold }}>
+                {profile?.name || 'Artisan'}
+              </Text>
+            )}
+            <View className="flex-row items-center gap-2 mt-2">
+              <Text className="text-[16px] text-[#C5A059]" style={{ fontFamily: fonts.poppins.bold }}>⭐ {stats.rating.toFixed(1)}</Text>
+              <View className="bg-green-100 px-3 py-1 rounded-full">
+                <Text className="text-green-700 text-[12px]" style={{ fontFamily: fonts.poppins.bold }}>Verified Seller</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -61,18 +133,21 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({
           <View className="flex-row gap-3">
             <StatCard
               title="Products"
-              value={sellerData.totalProducts.toString()}
+              value={stats.totalProducts.toString()}
               subtitle="Total listed"
+              loading={statsLoading}
             />
             <StatCard
               title="Orders"
-              value={sellerData.totalOrders.toString()}
+              value={stats.totalOrders.toString()}
               subtitle="This month"
+              loading={statsLoading}
             />
             <StatCard
               title="Revenue"
-              value={`$${sellerData.totalRevenue.toFixed(0)}`}
+              value={`Rs ${stats.totalRevenue.toFixed(0)}`}
               subtitle="This month"
+              loading={statsLoading}
             />
           </View>
         </View>
@@ -82,7 +157,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({
           
           <PaperButton
             mode="contained"
-            onPress={() => onAddProduct?.()}
+            onPress={() => navigation.navigate('AddProduct')}
             className="mb-3 rounded-2xl py-1"
             buttonColor="#800000"
             labelStyle={{ fontFamily: fonts.poppins.bold, fontSize: 16 }}
@@ -93,7 +168,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({
           
           <PaperButton
             mode="contained-tonal"
-            onPress={() => onViewOrders?.()}
+            onPress={() => console.log('View Orders')}
             className="mb-3 rounded-2xl py-1"
             labelStyle={{ fontFamily: fonts.poppins.bold, fontSize: 16 }}
             icon="receipt"
@@ -103,7 +178,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({
           
           <PaperButton
             mode="outlined"
-            onPress={() => onViewProducts?.()}
+            onPress={() => console.log('Manage Products')}
             className="mb-3 rounded-2xl py-1"
             textColor="#800000"
             style={{ borderColor: '#800000' }}
@@ -119,7 +194,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({
           
           <List.Item
             title="Edit Profile"
-            onPress={onEditProfile}
+            onPress={() => navigation.navigate('PersonalInfo')}
             className="bg-white rounded-2xl mb-2 elevation-1 shadow-sm"
             titleStyle={{ fontFamily: fonts.poppins.medium, fontSize: 16, color: '#333' }}
             left={props => <List.Icon {...props} icon="account-edit-outline" />}
@@ -128,7 +203,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({
           
           <List.Item
             title="Logout"
-            onPress={onLogout}
+            onPress={logout}
             className="bg-white rounded-2xl mb-2 elevation-1 shadow-sm"
             titleStyle={{ fontFamily: fonts.poppins.bold, fontSize: 16, color: '#800000' }}
             left={props => <List.Icon {...props} icon="logout" color="#800000" />}
@@ -139,9 +214,5 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  // NativeWind and Paper handle the styles
-});
 
 export default SellerDashboard;

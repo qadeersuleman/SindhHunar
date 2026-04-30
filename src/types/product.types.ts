@@ -3,11 +3,17 @@ export interface Product {
   name: string;
   price: number;
   image: string;
+  image_url?: string;
+  images?: string[];
   category: string;
+
   description?: string;
   artisan?: string;
   artisanId?: string;
+  artisan_id?: string;
+  artisan_name?: string;
   inStock?: boolean;
+
   featured?: boolean;
   createdAt?: string;
   updatedAt?: string;

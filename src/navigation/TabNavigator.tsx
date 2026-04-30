@@ -28,20 +28,14 @@ import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop } from 'react-nati
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator } from 'react-native';
 import { hapticFeedback } from '../utils/haptics';
+import { useCart } from '../store/cartStore';
+
 
 import HomeScreen from '../screens/home/HomeScreen';
 import CultureScreen from '../screens/culture/CultureScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import OrderScreen from '../screens/order/OrderScreen';
 import MapScreen from '../screens/map/MapScreen';
-
-// Futuristic Loader with Floating Elements
-const TabScreenLoader = () => (
-  <View style={loaderStyles.container}>
-    <ActivityIndicator size="large" color={COLORS.primary} />
-    <Text style={loaderStyles.text}>Jhuldi kar rahyo aahe...</Text>
-  </View>
-);
 
 const { width, height } = Dimensions.get('window');
 const TAB_BAR_WIDTH = width;
@@ -56,6 +50,14 @@ const COLORS = {
   background: '#FAF9F6',
   glass: 'rgba(255, 255, 255, 0.7)',
 };
+
+// Futuristic Loader with Floating Elements
+const TabScreenLoader = () => (
+  <View style={loaderStyles.container}>
+    <ActivityIndicator size="large" color={COLORS.primary} />
+    <Text style={loaderStyles.text}>Jhuldi kar rahyo aahe...</Text>
+  </View>
+);
 
 type MainTabParamList = {
   Bazaar: undefined;
@@ -74,6 +76,7 @@ interface TabIconProps {
 }
 
 const TabIcon = ({ route, focused }: TabIconProps) => {
+  const { totalItems } = useCart();
   const icons = {
     Bazaar: 'storefront',
     Saqafat: 'color-palette',
@@ -89,9 +92,15 @@ const TabIcon = ({ route, focused }: TabIconProps) => {
         size={20}
         color={focused ? '#FFFFFF' : '#666666'}
       />
+      {route === 'Jholi' && totalItems > 0 && (
+        <View style={iconStyles.badge}>
+          <Text style={iconStyles.badgeText}>{totalItems}</Text>
+        </View>
+      )}
     </View>
   );
 };
+
 
 const CustomTabBar = ({ state, descriptors, navigation }: any) => {
   const { t, i18n } = useTranslation();
@@ -443,6 +452,26 @@ const iconStyles = StyleSheet.create({
     width: 30,
     height: 24,
     position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -8,
+    right: -10,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontFamily: 'Poppins-Bold',
+    lineHeight: 12,
   },
   glowDot: {
     position: 'absolute',

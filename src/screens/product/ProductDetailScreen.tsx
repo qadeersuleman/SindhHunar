@@ -11,6 +11,7 @@ import {
   StatusBar,
   I18nManager,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -29,6 +30,8 @@ import { useTranslation } from 'react-i18next';
 import { RESPONSIVE } from '../../utils/responsive';
 import { fonts } from '../../utils/fonts';
 import { useToast } from '../../context/ToastContext';
+import { useCart } from '../../store/cartStore';
+
 
 const { width, height } = Dimensions.get('window');
 const HEADER_HEIGHT = RESPONSIVE.GET_HEIGHT(45);
@@ -44,6 +47,8 @@ const COLORS = {
   success: '#2E7D32',
 };
 
+import { useCulturalInfo } from '../../hooks/useSindhiCrafts';
+
 const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
   const { item } = route.params;
   const { t, i18n } = useTranslation();
@@ -52,6 +57,9 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
   const scrollY = useSharedValue(0);
   const [isLiked, setIsLiked] = useState(false);
   const [quantity, setQuantity] = useState(1);
+
+  // Fetch cultural significance for this category
+  const { data: culturalInfo, isLoading: cultureLoading } = useCulturalInfo(item.category);
 
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
@@ -104,9 +112,15 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
     };
   });
 
+  const { addToCart } = useCart();
+
   const handleAddToCart = () => {
+    addToCart(item, quantity);
+
+
+    
     showToast({
-      message: `${quantity} ${t(item.nameKey)} ${t('common.addedToCart', { defaultValue: 'added to Jholi!' })}`,
+      message: `${quantity} ${item.name} ${t('common.addedToCart', { defaultValue: 'added to Jholi!' })}`,
       type: 'success'
     });
   };
@@ -118,9 +132,43 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
     });
   };
 
-  const discountedPrice = item.price * 0.9; // Example 10% discount
+  const discountedPrice = (item.price || 0) * 0.9; // Example 10% discount
+
+  // Robust Image Logic
+  const productImage = item.image_url || 
+                       (Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 
+                       (typeof item.images === 'string' ? item.images : 
+                       (typeof item.image === 'string' ? item.image : item.image)));
+
+  // Robust Artisan Logic
+  const artisanObj = Array.isArray(item.artisans) ? item.artisans[0] : item.artisans;
+  
+  // Try to get a valid name from various sources
+  const rawArtisanName = (artisanObj?.profiles?.name) || 
+                         (artisanObj?.shop_name) || 
+                         (item.artisan_name) || 
+                         (typeof item.artisan === 'string' ? item.artisan : item.artisan?.name);
+
+  const artisanName = rawArtisanName || (item.artisanKey ? t(item.artisanKey) : 'Sindhi Artisan');
+
+  // Use profile avatar if available, then shop logo, then fallback
+  const artisanAvatar = (artisanObj?.profiles?.avatar_url) || 
+                        (artisanObj?.logo_url) || 
+                        'https://api.dicebear.com/7.x/avataaars/svg?seed=Artisan';
+
+  console.log('Rendering Product Detail Debug V2:', { 
+    id: item.id, 
+    rawName: rawArtisanName,
+    artisanKey: item.artisanKey,
+    finalName: artisanName,
+    hasAvatar: !!artisanAvatar
+  });
+
+
+
 
   return (
+
     <View className="flex-1 bg-white">
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
@@ -139,7 +187,7 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
             className="text-[16px] text-[#1A1A1A]"
             style={[{ fontFamily: fonts.poppins.bold, opacity: scrollY.value > HEADER_HEIGHT - 60 ? 1 : 0 }]}
           >
-            {t(item.nameKey)}
+            {item.nameKey ? t(item.nameKey) : item.name}
           </Animated.Text>
           <TouchableOpacity className="w-10 h-10 rounded-full bg-white/80 justify-center items-center">
             <Icon name="share-outline" size={22} color={COLORS.dark} />
@@ -156,7 +204,7 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
         {/* Hero Image Section */}
         <View style={{ height: HEADER_HEIGHT }} className="w-full overflow-hidden">
           <Animated.Image
-            source={typeof item.image === 'string' ? { uri: item.image } : item.image}
+            source={productImage ? (typeof productImage === 'string' ? { uri: productImage } : productImage) : { uri: 'https://via.placeholder.com/400' }}
             style={[headerImageStyle]}
             className="w-full h-full"
             resizeMode="cover"
@@ -209,7 +257,7 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
               className={`text-[32px] text-[#1A1A1A] leading-[36px] mb-3 ${isRTL ? 'text-right' : 'text-left'}`}
               style={{ fontFamily: fonts.bebasNeue.bold }}
             >
-              {t(item.nameKey)}
+              {item.nameKey ? t(item.nameKey) : item.name}
             </Text>
 
             <View className={`flex-row justify-between items-center mb-5 ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -217,6 +265,7 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
                 <Text className="text-[28px] text-[#800000]" style={{ fontFamily: fonts.bebasNeue.bold }}>Rs. {discountedPrice}</Text>
                 <Text className={`text-[16px] text-[#757575] line-through mb-1 ${isRTL ? 'mr-2.5' : 'ml-2.5'}`} style={{ fontFamily: fonts.poppins.regular }}>Rs. {item.price}</Text>
               </View>
+
               <View className="flex-row items-center bg-[#E8F5E9] px-2.5 py-1.5 rounded-lg">
                 <View className="w-1.5 h-1.5 rounded-full bg-[#2E7D32] mr-1.5" />
                 <Text className="text-[10px] text-[#2E7D32] font-bold uppercase" style={{ fontFamily: fonts.poppins.bold }}>
@@ -229,12 +278,18 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
 
             <View className={`flex-row items-center bg-[#FAF9F6] p-3 rounded-[15px] mb-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <Image 
-                source={{ uri: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Artisan' }} 
+                source={{ uri: artisanAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Artisan' }} 
                 className="w-[45px] h-[45px] rounded-full bg-[#DDD]" 
               />
+
               <View className={`flex-1 mx-3 ${isRTL ? 'items-end' : 'items-start'}`}>
                 <Text className="text-[12px] text-[#757575]" style={{ fontFamily: fonts.poppins.regular }}>{t('common.by')}</Text>
-                <Text className="text-[15px] text-[#1A1A1A]" style={{ fontFamily: fonts.poppins.bold }}>{t(item.artisanKey)}</Text>
+                <Text className="text-[15px] text-[#1A1A1A]" style={{ fontFamily: fonts.poppins.bold }}>
+                  {artisanName || 'Sindhi Artisan'}
+                </Text>
+
+
+
               </View>
               <TouchableOpacity className="w-10 h-10 rounded-full bg-white justify-center items-center shadow-sm elevation-2">
                 <Icon name="chatbubble-ellipses-outline" size={20} color={COLORS.primary} />
@@ -246,9 +301,44 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
                 {t('common.description', { defaultValue: 'Product Description' })}
               </Text>
               <Text className={`text-[14px] text-[#757575] leading-[22px] ${isRTL ? 'text-right' : 'text-left'}`} style={{ fontFamily: fonts.poppins.regular }}>
-                Experience the authentic Sindhi heritage with this masterpiece. Handcrafted by skilled artisans using traditional techniques passed down through generations. This product represents the rich culture and soul of Sindh.
+                {item.description || t('common.noDescription', { defaultValue: 'No description available for this authentic piece.' })}
               </Text>
             </View>
+
+            {/* Cultural Significance Section */}
+            {(culturalInfo || cultureLoading) && (
+              <Animated.View 
+                entering={FadeInDown.delay(200)}
+                className="mb-8 p-5 rounded-[25px] bg-[#FAF9F6] border border-[#C5A059]/20"
+              >
+                <View className={`flex-row items-center mb-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <View className="w-10 h-10 rounded-full bg-[#C5A059] justify-center items-center">
+                    <Icon name="library-outline" size={20} color="white" />
+                  </View>
+                  <Text className={`flex-1 text-[18px] text-[#1A1A1A] mx-3 ${isRTL ? 'text-right' : 'text-left'}`} style={{ fontFamily: fonts.poppins.bold }}>
+                    {isRTL ? 'ثقافتي اهميت' : 'Cultural Significance'}
+                  </Text>
+                </View>
+                
+                {cultureLoading ? (
+                  <ActivityIndicator size="small" color={COLORS.secondary} />
+                ) : (
+                  <>
+                    <Text className={`text-[14px] text-[#800000] mb-2 ${isRTL ? 'text-right' : 'text-left'}`} style={{ fontFamily: fonts.poppins.bold }}>
+                      {culturalInfo?.description}
+                    </Text>
+                    <Text className={`text-[13px] text-[#555] leading-[20px] ${isRTL ? 'text-right' : 'text-left'}`} style={{ fontFamily: fonts.poppins.regular }}>
+                      {culturalInfo?.significance}
+                    </Text>
+                    <View className="mt-3 pt-3 border-t border-[#C5A059]/10">
+                       <Text className={`text-[11px] text-[#C5A059] italic ${isRTL ? 'text-right' : 'text-left'}`} style={{ fontFamily: fonts.poppins.medium }}>
+                        {t('common.materials', { defaultValue: 'Materials' })}: {culturalInfo?.materials.join(', ')}
+                       </Text>
+                    </View>
+                  </>
+                )}
+              </Animated.View>
+            )}
 
             <View className="mb-6">
               <Text className={`text-[18px] text-[#1A1A1A] mb-2.5 ${isRTL ? 'text-right' : 'text-left'}`} style={{ fontFamily: fonts.poppins.bold }}>

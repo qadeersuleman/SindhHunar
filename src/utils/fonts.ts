@@ -5,6 +5,57 @@ export const fonts = {
   bebasNeue: {
     regular: 'BebasNeue-Regular',
     bold: 'BebasNeue-Bold',
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
   },
 
   // Poppins Family

@@ -4,7 +4,8 @@ import {
   EXPO_PUBLIC_SUPABASE_ANON_KEY,
   EXPO_PUBLIC_API_URL,
   EXPO_PUBLIC_MOCK_API,
-  EXPO_PUBLIC_ENABLE_STORYBOOK
+  EXPO_PUBLIC_ENABLE_STORYBOOK,
+  GOOGLE_WEB_CLIENT_ID
 } from '@env';
 
 // API Configuration
@@ -14,6 +15,9 @@ export const API_TIMEOUT = 10000;
 // Supabase Configuration
 export const SUPABASE_URL = EXPO_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
 export const SUPABASE_ANON_KEY = EXPO_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
+
+// Google Auth Configuration
+export const GOOGLE_CLIENT_ID = GOOGLE_WEB_CLIENT_ID || '930569299554-6oiqdgp3mnhsv5m0ju4bporcbvg1b2lr.apps.googleusercontent.com';
 
 // App Configuration
 export const APP_NAME = 'Sindh Hunar';
@@ -155,6 +159,7 @@ export const config = {
   API_TIMEOUT,
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
+  GOOGLE_CLIENT_ID,
   APP_NAME,
   APP_VERSION,
   APP_DESCRIPTION,

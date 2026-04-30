@@ -17,7 +17,7 @@ export interface SingleOrderResponse {
 
 export const getOrders = async (filters?: {
   customerId?: string;
-  storeId?: string;
+  artisanId?: string;
   status?: string;
   limit?: number;
   offset?: number;
@@ -32,8 +32,8 @@ export const getOrders = async (filters?: {
           email,
           phone
         ),
-        stores (
-          name,
+        artisans (
+          shop_name,
           logo_url,
           phone,
           address
@@ -44,8 +44,8 @@ export const getOrders = async (filters?: {
       query = query.eq('customer_id', filters.customerId);
     }
 
-    if (filters?.storeId) {
-      query = query.eq('store_id', filters.storeId);
+    if (filters?.artisanId) {
+      query = query.eq('artisan_id', filters.artisanId);
     }
 
     if (filters?.status) {
@@ -82,8 +82,8 @@ export const getOrderById = async (id: string): Promise<SingleOrderResponse> => 
           email,
           phone
         ),
-        stores (
-          name,
+        artisans (
+          shop_name,
           logo_url,
           phone,
           address,

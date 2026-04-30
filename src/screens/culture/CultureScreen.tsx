@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -60,10 +61,14 @@ const ARTISANS = [
 ];
 
 import { Card, Chip, Button as PaperButton } from 'react-native-paper';
+import { useSindhiArtisans } from '../../hooks/useSindhiCrafts';
 
 const CultureScreen: React.FC = () => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'sd';
+  
+  // Use React Query for artisans
+  const { data: artisans, isLoading: artisansLoading } = useSindhiArtisans({ limit: 10, active: true });
 
   const renderStory = ({ item, index }: { item: typeof HERITAGE_STORIES[0]; index: number }) => (
     <Animated.View 
@@ -93,17 +98,22 @@ const CultureScreen: React.FC = () => {
     </Animated.View>
   );
 
-  const renderArtisan = ({ item, index }: { item: typeof ARTISANS[0]; index: number }) => (
+  const renderArtisan = ({ item, index }: { item: any; index: number }) => (
     <Animated.View 
       entering={FadeInRight.delay(index * 150).springify()}
       className="w-[120px] items-center mr-5"
     >
-      <Image source={{ uri: item.image }} className="w-[100px] h-[100px] rounded-full mb-3 border-2 border-[#C5A059]" />
-      <Text className="text-[13px] text-[#1A1A1A] text-center" style={{ fontFamily: fonts.poppins.bold }}>{item.name}</Text>
-      <Text className="text-[11px] text-[#800000] text-center" style={{ fontFamily: fonts.poppins.medium }}>{item.craft}</Text>
+      <Image 
+        source={{ uri: item.logo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.shop_name}` }} 
+        className="w-[100px] h-[100px] rounded-full mb-3 border-2 border-[#C5A059] bg-white" 
+      />
+      <Text className="text-[13px] text-[#1A1A1A] text-center" style={{ fontFamily: fonts.poppins.bold }} numberOfLines={1}>{item.shop_name}</Text>
+      <Text className="text-[11px] text-[#800000] text-center" style={{ fontFamily: fonts.poppins.medium }} numberOfLines={1}>
+        {item.specialty && item.specialty.length > 0 ? item.specialty[0] : 'Artisan'}
+      </Text>
       <View className="flex-row items-center mt-1">
         <Icon name="location-outline" size={10} color={COLORS.secondary} />
-        <Text className="text-[10px] text-[#757575] ml-1" style={{ fontFamily: fonts.poppins.regular }}>{item.location}</Text>
+        <Text className="text-[10px] text-[#757575] ml-1" style={{ fontFamily: fonts.poppins.regular }}>{item.address || 'Sindh'}</Text>
       </View>
     </Animated.View>
   );
@@ -152,7 +162,7 @@ const CultureScreen: React.FC = () => {
             </Text>
           </View>
           <FlatList
-            data={ARTISANS}
+            data={artisans}
             renderItem={renderArtisan}
             keyExtractor={(item) => item.id}
             horizontal

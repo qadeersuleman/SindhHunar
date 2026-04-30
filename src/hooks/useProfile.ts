@@ -15,8 +15,8 @@ export const useProfile = (userId: string | undefined) => {
 
 // ─── Save Profile (upsert + optional avatar upload) ──────────────────────────
 interface SaveProfileArgs {
-  userId: string;
-  profile: Omit<UserProfile, 'user_id' | 'id' | 'updated_at'>;
+  id: string;
+  profile: Partial<Omit<UserProfile, 'id' | 'updated_at'>>;
   localAvatarUri?: string;      // if set, upload this file first
 }
 
@@ -24,25 +24,25 @@ export const useSaveProfile = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ userId, profile, localAvatarUri }: SaveProfileArgs) => {
+    mutationFn: async ({ id, profile, localAvatarUri }: SaveProfileArgs) => {
       let avatarUrl = profile.avatar_url;
 
       // Upload new avatar if a local file URI was provided
       if (localAvatarUri && localAvatarUri.startsWith('file://')) {
-        avatarUrl = await uploadAvatar(userId, localAvatarUri);
+        avatarUrl = await uploadAvatar(id, localAvatarUri);
       }
 
       await upsertProfile({
-        user_id: userId,
+        id,
         ...profile,
-        avatar_url: avatarUrl,
+        avatar_url: avatarUrl || null,
       });
 
       return avatarUrl;
     },
     onSuccess: (_result, variables) => {
       // Invalidate the cache so the profile re-fetches fresh data
-      queryClient.invalidateQueries({ queryKey: [PROFILE_QUERY_KEY, variables.userId] });
+      queryClient.invalidateQueries({ queryKey: [PROFILE_QUERY_KEY, variables.id] });
     },
   });
 };

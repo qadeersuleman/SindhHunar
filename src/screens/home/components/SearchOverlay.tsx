@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Dimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -31,6 +31,10 @@ interface SearchOverlayProps {
   trendingKeywords: string[];
 }
 
+// ActivityIndicator moved to react-native
+import { useSearchSindhiCrafts } from '../../../hooks/useSindhiCrafts';
+import { useNavigation } from '@react-navigation/native';
+
 const SearchOverlay: React.FC<SearchOverlayProps> = ({
   visible,
   isRTL,
@@ -42,6 +46,23 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
   recentSearches,
   trendingKeywords,
 }) => {
+  const navigation = useNavigation<any>();
+  
+  // Real-time search with React Query
+  const { data: searchResults, isLoading: isSearching } = useSearchSindhiCrafts(searchText);
+
+  const handleResultPress = (product: any) => {
+    onClose();
+    // Map data to expected format for Detail screen
+    const mappedItem = {
+      ...product,
+      nameKey: product.name,
+      image: product.images && product.images.length > 0 ? { uri: product.images[0] } : images.ajrakBg,
+      artisanKey: product.artisans?.shop_name || 'Artisan',
+    };
+    navigation.navigate('ProductDetail', { item: mappedItem });
+  };
+
   return (
     <Animated.View style={[styles.searchOverlay, searchOverlayStyle]}>
       <SafeAreaView style={styles.searchOverlayContent}>
@@ -56,7 +77,9 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
               value={searchText}
               onChangeText={setSearchText}
             />
-            {searchText.length > 0 && (
+            {isSearching ? (
+              <ActivityIndicator size="small" color={COLORS.secondary} />
+            ) : searchText.length > 0 && (
               <TouchableOpacity onPress={() => setSearchText('')}>
                 <Icon name="close-circle" size={RESPONSIVE.GET_FONT_SIZE(20)} color={COLORS.gray} />
               </TouchableOpacity>
@@ -70,54 +93,98 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.searchSection}>
-            <Text style={[styles.searchSectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('home.recent')}</Text>
-            <View style={[styles.recentSearchesContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              {recentSearches.map((item, index) => (
-                <View 
-                  key={index}
-                  style={[styles.searchChip, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                >
-                  <Icon name="time-outline" size={RESPONSIVE.GET_FONT_SIZE(14)} color={COLORS.gray} style={{ [isRTL ? 'marginLeft' : 'marginRight']: 5 }} />
-                  <Text style={styles.searchChipText}>{item}</Text>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+          {searchText.length >= 2 ? (
+            <View style={styles.searchSection}>
+              <Text style={[styles.searchSectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {isRTL ? 'ڳولا جا نتيجا' : 'Search Results'}
+              </Text>
+              
+              {searchResults && searchResults.length > 0 ? (
+                searchResults.map((item: any) => (
+                  <TouchableOpacity 
+                    key={item.id} 
+                    style={[styles.resultItem, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                    onPress={() => handleResultPress(item)}
+                  >
+                    <Image 
+                      source={item.images && item.images.length > 0 ? { uri: item.images[0] } : images.ajrakBg} 
+                      style={styles.resultImage} 
+                    />
+                    <View style={[styles.resultInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                      <Text style={styles.resultName}>{item.name}</Text>
+                      <Text style={styles.resultCategory}>{item.category}</Text>
+                      <Text style={styles.resultPrice}>Rs. {item.price}</Text>
+                    </View>
+                    <Icon name={isRTL ? "chevron-back" : "chevron-forward"} size={18} color={COLORS.gray} />
+                  </TouchableOpacity>
+                ))
+              ) : !isSearching && (
+                <View style={styles.noResultsContainer}>
+                  <Icon name="search-outline" size={50} color={COLORS.lightGray} />
+                  <Text style={styles.noResultsText}>
+                    {isRTL ? 'ڪو به نتيجو نه مليو' : 'No results found'}
+                  </Text>
                 </View>
-              ))}
+              )}
             </View>
-          </View>
-
-          <View style={styles.searchSection}>
-            <Text style={[styles.searchSectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('home.trendingNow')}</Text>
-            <View style={styles.trendingContainer}>
-              {trendingKeywords.map((item, index) => (
-                <View 
-                  key={index}
-                  style={[styles.trendingItem, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                >
-                  <View style={styles.trendingIcon}>
-                    <Icon name="trending-up" size={RESPONSIVE.GET_FONT_SIZE(16)} color={COLORS.secondary} />
-                  </View>
-                  <Text style={[styles.trendingText, { textAlign: isRTL ? 'right' : 'left' }]}>{item}</Text>
-                  <Icon name={isRTL ? "chevron-back" : "chevron-forward"} size={RESPONSIVE.GET_FONT_SIZE(14)} color={COLORS.lightGray} />
+          ) : (
+            <>
+              <View style={styles.searchSection}>
+                <Text style={[styles.searchSectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('home.recent')}</Text>
+                <View style={[styles.recentSearchesContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {recentSearches.map((item, index) => (
+                    <TouchableOpacity 
+                      key={index}
+                      onPress={() => setSearchText(item)}
+                      style={[styles.searchChip, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                    >
+                      <Icon name="time-outline" size={RESPONSIVE.GET_FONT_SIZE(14)} color={COLORS.gray} style={{ [isRTL ? 'marginLeft' : 'marginRight']: 5 }} />
+                      <Text style={styles.searchChipText}>{item}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              ))}
-            </View>
-          </View>
+              </View>
 
-          <View style={styles.searchSection}>
-            <Text style={[styles.searchSectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('home.popularCollections')}</Text>
-            <View style={[styles.popularSearchGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              {['Fashion', 'Ajrak', 'Decor'].map((item, index) => (
-                <TouchableOpacity key={index} style={styles.popularSearchCard}>
-                  <Image 
-                    source={images.background} 
-                    style={[StyleSheet.absoluteFillObject, { opacity: 0.1 }]} 
-                  />
-                  <Text style={styles.popularSearchCardText}>{t(`home.${item.toLowerCase()}`)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+              <View style={styles.searchSection}>
+                <Text style={[styles.searchSectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('home.trendingNow')}</Text>
+                <View style={styles.trendingContainer}>
+                  {trendingKeywords.map((item, index) => (
+                    <TouchableOpacity 
+                      key={index}
+                      onPress={() => setSearchText(item)}
+                      style={[styles.trendingItem, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                    >
+                      <View style={styles.trendingIcon}>
+                        <Icon name="trending-up" size={RESPONSIVE.GET_FONT_SIZE(16)} color={COLORS.secondary} />
+                      </View>
+                      <Text style={[styles.trendingText, { textAlign: isRTL ? 'right' : 'left' }]}>{item}</Text>
+                      <Icon name={isRTL ? "chevron-back" : "chevron-forward"} size={RESPONSIVE.GET_FONT_SIZE(14)} color={COLORS.lightGray} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.searchSection}>
+                <Text style={[styles.searchSectionTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t('home.popularCollections')}</Text>
+                <View style={[styles.popularSearchGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {['Fashion', 'Ajrak', 'Decor'].map((item, index) => (
+                    <TouchableOpacity 
+                      key={index} 
+                      style={styles.popularSearchCard}
+                      onPress={() => setSearchText(item)}
+                    >
+                      <Image 
+                        source={images.background} 
+                        style={[StyleSheet.absoluteFillObject, { opacity: 0.1 }]} 
+                      />
+                      <Text style={styles.popularSearchCardText}>{t(`home.${item.toLowerCase()}`)}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
     </Animated.View>
@@ -241,6 +308,56 @@ const styles = StyleSheet.create({
     fontFamily: fonts.poppins.bold,
     fontSize: RESPONSIVE.GET_FONT_SIZE(12),
     color: COLORS.primary,
+  },
+  resultItem: {
+    backgroundColor: COLORS.white,
+    padding: RESPONSIVE.MODERATE_SCALE(12),
+    borderRadius: RESPONSIVE.MODERATE_SCALE(20),
+    marginBottom: RESPONSIVE.MODERATE_SCALE(10),
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  resultImage: {
+    width: RESPONSIVE.MODERATE_SCALE(60),
+    height: RESPONSIVE.MODERATE_SCALE(60),
+    borderRadius: RESPONSIVE.MODERATE_SCALE(15),
+    backgroundColor: COLORS.lightGray,
+  },
+  resultInfo: {
+    flex: 1,
+    marginHorizontal: RESPONSIVE.MODERATE_SCALE(15),
+  },
+  resultName: {
+    fontFamily: fonts.poppins.bold,
+    fontSize: RESPONSIVE.GET_FONT_SIZE(14),
+    color: COLORS.dark,
+  },
+  resultCategory: {
+    fontFamily: fonts.poppins.medium,
+    fontSize: RESPONSIVE.GET_FONT_SIZE(10),
+    color: COLORS.secondary,
+    textTransform: 'uppercase',
+  },
+  resultPrice: {
+    fontFamily: fonts.bebasNeue.bold,
+    fontSize: RESPONSIVE.GET_FONT_SIZE(16),
+    color: COLORS.primary,
+    marginTop: 2,
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: RESPONSIVE.GET_HEIGHT(10),
+  },
+  noResultsText: {
+    fontFamily: fonts.poppins.medium,
+    fontSize: RESPONSIVE.GET_FONT_SIZE(14),
+    color: COLORS.gray,
+    marginTop: 15,
   },
 });
 

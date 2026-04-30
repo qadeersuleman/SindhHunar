@@ -13,6 +13,7 @@ import {
   StatusBar,
   I18nManager,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import notifee, { AndroidImportance } from '@notifee/react-native';
 import Carousel from 'react-native-reanimated-carousel';
@@ -43,6 +44,7 @@ import CategoryList from './components/CategoryList';
 import ProductCard from './components/ProductCard';
 import SearchOverlay from './components/SearchOverlay';
 import { useToast } from '../../context/ToastContext';
+
 
 const { width } = Dimensions.get('window');
 
@@ -100,73 +102,20 @@ const OFFERS = [
   },
 ];
 
-const POPULAR_ITEMS = [
-  {
-    id: '1',
-    nameKey: 'products.peda_title',
-    price: 1200,
-    rating: 5.0,
-    reviews: 245,
-    image: images.peda,
-    category: 'Peda',
-    artisanKey: 'products.artisan1',
-  },
-  {
-    id: '2',
-    nameKey: 'products.ralli_title',
-    price: 4500,
-    rating: 4.9,
-    reviews: 112,
-    image: images.rili,
-    category: 'Ralli',
-    artisanKey: 'products.artisan2',
-  },
-  {
-    id: '3',
-    nameKey: 'products.item3_name',
-    price: 850,
-    rating: 4.8,
-    reviews: 89,
-    image: images.topi,
-    category: 'Topi',
-    artisanKey: 'products.artisan3',
-  },
-  {
-    id: '4',
-    nameKey: 'products.item4_name',
-    price: 1500,
-    rating: 4.7,
-    reviews: 34,
-    image: images.ajrakBg,
-    category: 'Ajrak',
-    artisanKey: 'products.artisan4',
-  },
-  {
-    id: '5',
-    nameKey: 'products.item5_name',
-    price: 650,
-    rating: 4.6,
-    reviews: 56,
-    image: images.cardbg, // Using cardbg as placeholder
-    category: 'Pottery',
-    artisanKey: 'products.artisan5',
-  },
-  {
-    id: '6',
-    nameKey: 'products.item6_name',
-    price: 450,
-    rating: 4.9,
-    reviews: 120,
-    image: images.ajrakBg, // Using ajrakBg as placeholder
-    category: 'Dates',
-    artisanKey: 'products.artisan6',
-  },
-];
-
 const RECENT_SEARCHES = ['Ajrak Shawl', 'Ralli Quilt', 'Silver Jhumka', 'Handmade Pot'];
 const TRENDING_KEYWORDS = ['Embroidery', 'Textiles', 'Pottery', 'Artisan', 'Jewelry'];
 
+import { useSindhiProducts, useSindhiArtisans } from '../../hooks/useSindhiCrafts';
+import { subscribeToSindhiProducts } from '../../services/supabase/sindhi-crafts';
+import { useQueryClient } from '@tanstack/react-query';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SUPABASE_URL } from '../../config/env';
+
 const HomeScreen: React.FC<any> = ({ navigation }) => {
+  useEffect(() => {
+    console.log('Supabase Config Check - URL:', SUPABASE_URL);
+  }, []);
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'sd';
   const [selectedCategory, setSelectedCategory] = useState('1');
@@ -174,19 +123,58 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [searchText, setSearchText] = useState('');
   const { showToast } = useToast();
   const scrollY = useSharedValue(0);
+
   const searchAnim = useSharedValue(0);
+
+
+  // Fetch real-time products from Supabase via React Query
+  const { data: products, isLoading: productsLoading, error: productsError } = useSindhiProducts({});
+
+  useEffect(() => {
+    console.log('HomeScreen Products Update:', { 
+      count: products?.length, 
+      isLoading: productsLoading,
+      error: productsError,
+      data: products
+    });
+  }, [products, productsLoading, productsError]);
 
   const handleProductPress = useCallback((item: any) => {
     navigation.navigate('ProductDetail', { item });
   }, [navigation]);
 
+  // Use QueryClient to invalidate and refetch on real-time updates
+  const queryClient = useQueryClient();
+
   useEffect(() => {
-    setTimeout(() => {
-      showToast({
-        message: t('common.welcomeBazaar', { defaultValue: 'Khush Amdeed to Bazaar!' }),
-        type: 'success'
-      });
-    }, 1500);
+    // Subscribe to real-time changes
+    const subscription = subscribeToSindhiProducts(() => {
+      queryClient.invalidateQueries({ queryKey: ['sindhi-products'] });
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [queryClient]);
+
+  useEffect(() => {
+    const checkWelcome = async () => {
+      try {
+        const hasShown = await AsyncStorage.getItem('has_shown_welcome_toast');
+        if (!hasShown) {
+          setTimeout(() => {
+            showToast({
+              message: t('common.welcomeBazaar', { defaultValue: 'Khush Amdeed to Bazaar!' }),
+              type: 'success'
+            });
+          }, 1500);
+          await AsyncStorage.setItem('has_shown_welcome_toast', 'true');
+        }
+      } catch (e) {
+        console.error('AsyncStorage error:', e);
+      }
+    };
+    checkWelcome();
   }, []);
 
   const toggleLanguage = async () => {
@@ -321,14 +309,24 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
     </View>
   ), [isRTL, selectedCategory, t, renderOffer]);
 
-  const renderProduct = useCallback(({ item }: { item: typeof POPULAR_ITEMS[0] }) => (
-    <ProductCard
-      item={item}
-      t={t}
-      isRTL={isRTL}
-      onPress={() => handleProductPress(item)}
-    />
-  ), [t, isRTL, handleProductPress]);
+  const renderProduct = useCallback(({ item }: { item: any }) => {
+    // Map Supabase fields to ProductCard format
+    const mappedItem = {
+      ...item,
+      nameKey: item.name, // The DB has the actual name
+      image: item.images && item.images.length > 0 ? { uri: item.images[0] } : images.ajrakBg,
+      artisanKey: item.artisans?.shop_name || 'Artisan',
+    };
+
+    return (
+      <ProductCard
+        item={mappedItem}
+        t={t}
+        isRTL={isRTL}
+        onPress={() => handleProductPress(mappedItem)}
+      />
+    );
+  }, [t, isRTL, handleProductPress]);
 
   const keyExtractor = useCallback((item: any) => item.id, []);
   const ITEM_HEIGHT = RESPONSIVE.GET_HEIGHT(32);
@@ -351,24 +349,38 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
         onSearchPress={() => toggleSearch(true)}
       />
 
-      <Animated.FlatList
-        data={POPULAR_ITEMS}
-        renderItem={renderProduct}
-        keyExtractor={keyExtractor}
-        numColumns={2}
-        ListHeaderComponent={listHeaderComponent}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: RESPONSIVE.GET_HEIGHT(2), paddingBottom: RESPONSIVE.GET_HEIGHT(15) }}
-        columnWrapperStyle={{ paddingHorizontal: RESPONSIVE.GET_WIDTH(5), justifyContent: 'space-between', flexDirection: isRTL ? 'row-reverse' : 'row' }}
-        initialNumToRender={6}
-        maxToRenderPerBatch={10}
-        windowSize={10}
-        removeClippedSubviews={Platform.OS === 'android'}
-        getItemLayout={getItemLayout}
-        ListFooterComponent={<View className="h-10" />}
-      />
+      {productsLoading ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : (
+        <Animated.FlatList
+          data={products}
+          renderItem={renderProduct}
+          keyExtractor={keyExtractor}
+          numColumns={2}
+          ListHeaderComponent={listHeaderComponent}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingTop: RESPONSIVE.GET_HEIGHT(2), paddingBottom: RESPONSIVE.GET_HEIGHT(15) }}
+          columnWrapperStyle={{ paddingHorizontal: RESPONSIVE.GET_WIDTH(5), justifyContent: 'space-between', flexDirection: isRTL ? 'row-reverse' : 'row' }}
+          initialNumToRender={6}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          removeClippedSubviews={Platform.OS === 'android'}
+          getItemLayout={getItemLayout}
+          ListEmptyComponent={
+            <View className="flex-1 justify-center items-center py-20">
+              <Icon name="basket-outline" size={60} color="#E5E7EB" />
+              <Text className="text-gray-400 mt-4 text-[16px]" style={{ fontFamily: fonts.poppins.medium }}>
+                {t('home.noProducts', { defaultValue: 'No products found in Bazaar yet' })}
+              </Text>
+            </View>
+          }
+          ListFooterComponent={<View className="h-10" />}
+        />
+      )}
 
       <SearchOverlay
         visible={showSearch}
@@ -389,22 +401,18 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
         <TouchableOpacity 
           className="w-14 h-14 rounded-full overflow-hidden shadow-xl elevation-8"
           activeOpacity={0.8}
+          onPress={() => navigation.navigate('Chat')}
         >
           <LinearGradient
-            colors={[COLORS.secondary, '#A67C00']}
+            colors={[COLORS.primary, '#4A0000']}
             className="flex-1 justify-center items-center"
           >
-            <LottieAnimation
-              source={shoppingcartAnimation}
-              size={40}
-              style={{ position: 'absolute' }}
-            />
-            <View className="absolute top-3 right-3 bg-[#800000] min-w-[18px] h-[18px] rounded-full justify-center items-center border-[1.5px] border-white">
-              <Text className="text-white text-[10px] font-bold" style={{ fontFamily: fonts.poppins.bold }}>2</Text>
-            </View>
+            <Icon name="chatbubble-ellipses" size={28} color="white" />
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
+
+
     </View>
   );
 };

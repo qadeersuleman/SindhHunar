@@ -35,8 +35,13 @@ export const getProducts = async (filters?: {
           id,
           shop_name,
           logo_url,
-          rating
+          rating,
+          profiles:owner_id (
+            name,
+            avatar_url
+          )
         )
+
       `);
 
     if (filters?.category) {
@@ -94,7 +99,11 @@ export const getProductById = async (id: string): Promise<SingleProductResponse>
           logo_url,
           rating,
           address,
-          phone
+          phone,
+          profiles:owner_id (
+            name,
+            avatar_url
+          )
         )
       `)
       .eq('id', id)

@@ -5,24 +5,21 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   TouchableOpacity,
   Dimensions,
-  Switch,
-  Modal,
-  Platform,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Animated, { FadeInDown, FadeInRight, FadeIn } from 'react-native-reanimated';
-import { BlurView } from '@react-native-community/blur';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Avatar, List, Switch as PaperSwitch, Divider, Portal, Dialog, Button } from 'react-native-paper';
 import { fonts } from '../../utils/fonts';
-import { useAuthContext } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../context/ToastContext';
 import { useProfile } from '../../hooks/useProfile';
+import { useMyOrders } from '../../hooks/useOrders';
+import PremiumHeader from '../../components/PremiumHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -37,211 +34,400 @@ const COLORS = {
   error: '#E74C3C',
 };
 
-import { Avatar, List, Switch as PaperSwitch, Divider, Portal, Dialog, Button } from 'react-native-paper';
-
 const ProfileScreen: React.FC = () => {
-  const { logout, user } = useAuthContext();
+  const { logout, user } = useAuth();
   const { t, i18n } = useTranslation();
   const { showToast } = useToast();
   const isRTL = i18n.language === 'sd';
   const navigation = useNavigation<any>();
   const [showLogoutDialog, setShowLogoutDialog] = React.useState(false);
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
-  // Fetch profile from Supabase via React Query
-  const { data: profile, isLoading } = useProfile(user?.id);
+  const { data: profile, isLoading: isProfileLoading } = useProfile(user?.id);
+  const { data: orders, isLoading: isOrdersLoading } = useMyOrders(user?.id || '');
 
-  const displayName = profile?.full_name || user?.name || user?.email?.split('@')[0] || 'Sindh Hunar';
+  const displayName = profile?.name || user?.name || user?.email?.split('@')[0] || 'Sindh Hunar';
   const avatarUrl = profile?.avatar_url;
+  const userRole = profile?.role || 'customer';
+
+  const HeaderContent = () => (
+    <View style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+      <Animated.View entering={FadeInDown.springify()} style={styles.avatarGlow}>
+        {isProfileLoading ? (
+          <View style={styles.avatarPlaceholder}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          </View>
+        ) : avatarUrl ? (
+          <Avatar.Image size={60} source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <Avatar.Icon size={60} icon="account" color={COLORS.secondary} style={styles.avatarIcon} />
+        )}
+
+      </Animated.View>
+      
+      <View style={[styles.headerTextInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+        <Text style={styles.headerDisplayName}>{displayName}</Text>
+        <View style={[styles.headerRoleBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <Icon name={userRole === 'artisan' ? "star" : "checkmark-circle"} size={12} color="white" />
+          <Text style={styles.headerRoleText}>
+            {userRole.toUpperCase()} {userRole === 'customer' ? 'MEMBER' : ''}
+          </Text>
+        </View>
+      </View>
+
+      <TouchableOpacity 
+        onPress={() => navigation.navigate('PersonalInfo')}
+        style={styles.headerEditBtn}
+      >
+        <Icon name="settings-outline" size={22} color="white" />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
-    <SafeAreaView className="flex-1 bg-[#FAF9F6]" edges={['top']}>
+    <PremiumHeader 
+      headerContent={<HeaderContent />}
+      height={160}
+      overlap={30}
+    >
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Profile Header */}
-        <View className="items-center py-8">
-          <Animated.View entering={FadeInDown.springify()} className="relative mb-4">
-            {isLoading ? (
-              <View className="w-[110px] h-[110px] rounded-full bg-gray-200 justify-center items-center border-2 border-[#C5A059]">
-                <ActivityIndicator size="small" color={COLORS.primary} />
-              </View>
-            ) : avatarUrl ? (
-              <Avatar.Image size={110} source={{ uri: avatarUrl }} style={{ borderWidth: 3, borderColor: COLORS.secondary, backgroundColor: 'transparent' }} />
-            ) : (
-              <Avatar.Icon size={110} icon="account" color={COLORS.secondary} style={{ backgroundColor: 'rgba(128,0,0,0.08)', borderWidth: 3, borderColor: COLORS.secondary }} />
-            )}
-            
-            {!isLoading && (
-              <TouchableOpacity
-                className="absolute bottom-1 right-1 bg-[#800000] w-8 h-8 rounded-full justify-center items-center border-2 border-white"
-                onPress={() => navigation.navigate('PersonalInfo')}
-              >
-                <Icon name="camera" size={16} color="white" />
-              </TouchableOpacity>
-            )}
-          </Animated.View>
-          
-          <Animated.View entering={FadeInDown.delay(200).springify()} className="items-center">
-            {isLoading ? (
-              <View className="w-40 h-8 bg-gray-200 rounded mb-2" />
-            ) : (
-              <Text className="text-[28px] text-[#1A1A1A] tracking-wider" style={{ fontFamily: fonts.bebasNeue.bold }}>
-                {displayName}
-              </Text>
-            )}
-            
-            {isLoading ? (
-              <View className="w-32 h-6 bg-gray-200 rounded-full" />
-            ) : (
-              <View className="flex-row items-center bg-[#C5A059]/10 px-3 py-1 rounded-full mt-1">
-                <Icon name="checkmark-circle" size={14} color={COLORS.secondary} />
-                <Text className="text-[10px] text-[#C5A059] ml-1" style={{ fontFamily: fonts.poppins.bold }}>
-                  Premium Member
-                </Text>
-              </View>
-            )}
-          </Animated.View>
-        </View>
 
+        
         {/* Stats Row */}
-        <Animated.View entering={FadeInDown.delay(400).springify()} className="flex-row bg-white mx-6 rounded-[25px] py-5 shadow-sm elevation-3 mb-8">
-          <View className="flex-1 items-center">
-            <Text className="text-[22px] text-[#800000]" style={{ fontFamily: fonts.bebasNeue.bold }}>12</Text>
-            <Text className="text-[11px] text-[#757575]" style={{ fontFamily: fonts.poppins.medium }}>Orders</Text>
+        <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.statsRow}>
+          <TouchableOpacity 
+            style={styles.statItem}
+            onPress={() => navigation.navigate('OrderHistory')}
+          >
+            <Text style={styles.statValue}>{isOrdersLoading ? '...' : orders?.length || 0}</Text>
+            <Text style={styles.statLabel}>Orders</Text>
+          </TouchableOpacity>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>25</Text>
+            <Text style={styles.statLabel}>Saved</Text>
           </View>
-          <View className="w-[1px] h-3/5 bg-gray-100 self-center" />
-          <View className="flex-1 items-center">
-            <Text className="text-[22px] text-[#800000]" style={{ fontFamily: fonts.bebasNeue.bold }}>25</Text>
-            <Text className="text-[11px] text-[#757575]" style={{ fontFamily: fonts.poppins.medium }}>Saved</Text>
-          </View>
-          <View className="w-[1px] h-3/5 bg-gray-100 self-center" />
-          <View className="flex-1 items-center">
-            <Text className="text-[22px] text-[#800000]" style={{ fontFamily: fonts.bebasNeue.bold }}>450</Text>
-            <Text className="text-[11px] text-[#757575]" style={{ fontFamily: fonts.poppins.medium }}>Points</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>450</Text>
+            <Text style={styles.statLabel}>Points</Text>
           </View>
         </Animated.View>
 
         {/* Menu Sections */}
-        <View className="px-6 gap-6">
-          <Animated.View entering={FadeInDown.delay(600).springify()}>
-            <Text className="text-[18px] text-[#757575] mb-2 ml-1 tracking-wider uppercase" style={{ fontFamily: fonts.bebasNeue.bold }}>
-              Account Settings
-            </Text>
-            <View className="bg-white rounded-[25px] overflow-hidden shadow-sm elevation-3">
+        <View style={styles.menuContainer}>
+          <Animated.View entering={FadeInDown.delay(400).springify()}>
+            <Text style={styles.sectionTitle}>Account Settings</Text>
+            <View style={styles.menuBox}>
               <List.Item
                 title="Personal Information"
                 description="Update your profile details"
                 left={props => <List.Icon {...props} icon="account-outline" color={COLORS.primary} />}
-                right={props => <List.Icon {...props} icon="chevron-right" size={20} />}
+                right={props => <List.Icon {...props} icon="chevron-right" />}
                 onPress={() => navigation.navigate('PersonalInfo')}
-                titleStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
-                descriptionStyle={{ fontFamily: fonts.poppins.regular, fontSize: 11 }}
+                titleStyle={styles.menuTitle}
+                descriptionStyle={styles.menuDesc}
               />
               <Divider />
               <List.Item
                 title="Shipping Addresses"
                 description="Ghotki, Sindh"
                 left={props => <List.Icon {...props} icon="map-marker-outline" color={COLORS.primary} />}
-                right={props => <List.Icon {...props} icon="chevron-right" size={20} />}
-                titleStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
-                descriptionStyle={{ fontFamily: fonts.poppins.regular, fontSize: 11 }}
+                right={props => <List.Icon {...props} icon="chevron-right" />}
+                titleStyle={styles.menuTitle}
+                descriptionStyle={styles.menuDesc}
               />
               <Divider />
               <List.Item
                 title="Payment Methods"
                 description="Visa, JazzCash"
                 left={props => <List.Icon {...props} icon="credit-card-outline" color={COLORS.primary} />}
-                right={props => <List.Icon {...props} icon="chevron-right" size={20} />}
-                titleStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
-                descriptionStyle={{ fontFamily: fonts.poppins.regular, fontSize: 11 }}
+                right={props => <List.Icon {...props} icon="chevron-right" />}
+                titleStyle={styles.menuTitle}
+                descriptionStyle={styles.menuDesc}
               />
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(800).springify()}>
-            <Text className="text-[18px] text-[#757575] mb-2 ml-1 tracking-wider uppercase" style={{ fontFamily: fonts.bebasNeue.bold }}>
-              Preferences
-            </Text>
-            <View className="bg-white rounded-[25px] overflow-hidden shadow-sm elevation-3">
+          <Animated.View entering={FadeInDown.delay(600).springify()}>
+            <Text style={styles.sectionTitle}>Preferences</Text>
+            <View style={styles.menuBox}>
               <List.Item
                 title="Notifications"
                 description="Order updates and offers"
                 left={props => <List.Icon {...props} icon="bell-outline" color={COLORS.primary} />}
                 right={() => <PaperSwitch value={true} color={COLORS.primary} />}
-                titleStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
-                descriptionStyle={{ fontFamily: fonts.poppins.regular, fontSize: 11 }}
+                titleStyle={styles.menuTitle}
+                descriptionStyle={styles.menuDesc}
               />
               <Divider />
               <List.Item
                 title="App Language"
                 description="Sindhi / Urdu / English"
                 left={props => <List.Icon {...props} icon="translate" color={COLORS.primary} />}
-                right={props => <List.Icon {...props} icon="chevron-right" size={20} />}
-                titleStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
-                descriptionStyle={{ fontFamily: fonts.poppins.regular, fontSize: 11 }}
+                right={props => <List.Icon {...props} icon="chevron-right" />}
+                titleStyle={styles.menuTitle}
+                descriptionStyle={styles.menuDesc}
               />
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(1000).springify()} className="bg-white rounded-[25px] overflow-hidden shadow-sm elevation-3 mb-6">
+          <Animated.View entering={FadeInDown.delay(800).springify()} style={styles.footerMenu}>
             <List.Item
               title="Support Center"
               left={props => <List.Icon {...props} icon="help-circle-outline" color={COLORS.primary} />}
               onPress={() => {}}
-              titleStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
+              titleStyle={styles.menuTitle}
             />
             <Divider />
             <List.Item
               title="Logout"
               left={props => <List.Icon {...props} icon="logout" color={COLORS.error} />}
               onPress={() => setShowLogoutDialog(true)}
-              titleStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14, color: COLORS.error }}
+              titleStyle={[styles.menuTitle, { color: COLORS.error }]}
             />
           </Animated.View>
         </View>
 
-        <View className="items-center mt-2">
-          <Text className="text-[#757575] text-[12px]" style={{ fontFamily: fonts.poppins.regular }}>SindhHunar v1.0.2</Text>
-          <Text className="text-[#800000]/40 text-[10px] mt-1" style={{ fontFamily: fonts.poppins.bold }}>Made with ❤️ in Sindh</Text>
+        <View style={styles.versionInfo}>
+          <Text style={styles.versionText}>SindhHunar v1.0.2</Text>
+          <Text style={styles.madeWithText}>Made with ❤️ in Sindh</Text>
         </View>
       </ScrollView>
 
       {/* Logout Dialog */}
       <Portal>
-        <Dialog visible={showLogoutDialog} onDismiss={() => setShowLogoutDialog(false)} style={{ borderRadius: 25, backgroundColor: 'white' }}>
+        <Dialog visible={showLogoutDialog} onDismiss={() => setShowLogoutDialog(false)} style={styles.dialog}>
           <Dialog.Icon icon="logout" color={COLORS.primary} size={40} />
-          <Dialog.Title style={{ textAlign: 'center', fontFamily: fonts.bebasNeue.bold, fontSize: 24 }}>{t('common.logoutTitle')}</Dialog.Title>
+          <Dialog.Title style={styles.dialogTitle}>{t('common.logoutTitle')}</Dialog.Title>
           <Dialog.Content>
-            <Text className="text-center text-[#757575]" style={{ fontFamily: fonts.poppins.regular }}>{t('common.logoutConfirm')}</Text>
+            {isLoggingOut ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={COLORS.primary} size="large" />
+                <Text style={styles.loadingText}>Logging out...</Text>
+              </View>
+            ) : (
+              <Text style={styles.dialogContent}>{t('common.logoutConfirm')}</Text>
+            )}
           </Dialog.Content>
-          <Dialog.Actions className={`justify-around px-4 pb-6 ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
+          <Dialog.Actions style={[styles.dialogActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <Button 
               onPress={() => setShowLogoutDialog(false)}
               mode="text"
               textColor="#757575"
-              labelStyle={{ fontFamily: fonts.poppins.bold }}
+              disabled={isLoggingOut}
+              labelStyle={styles.btnLabel}
             >
               {t('common.cancel')}
             </Button>
             <Button 
-              onPress={() => {
-                setShowLogoutDialog(false);
-                logout();
-                showToast({ message: t('common.logoutSuccess'), type: 'info' });
+              onPress={async () => {
+                setIsLoggingOut(true);
+                try {
+                  await logout();
+                  showToast({ message: t('common.logoutSuccess'), type: 'info' });
+                } catch (error) {
+                  console.error('Logout error:', error);
+                } finally {
+                  setIsLoggingOut(false);
+                  setShowLogoutDialog(false);
+                }
               }}
               mode="contained"
               buttonColor={COLORS.primary}
-              labelStyle={{ fontFamily: fonts.poppins.bold }}
+              loading={isLoggingOut}
+              disabled={isLoggingOut}
+              labelStyle={styles.btnLabel}
             >
               {t('common.yes')}
             </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </SafeAreaView>
+    </PremiumHeader>
   );
 };
 
 const styles = StyleSheet.create({
-  // NativeWind and Paper handle the styles
+  headerUserInfo: {
+    alignItems: 'center',
+    paddingTop: 5,
+  },
+  avatarGlow: {
+    padding: 2,
+    borderRadius: 35,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  avatarImage: {
+    backgroundColor: 'transparent',
+  },
+  avatarIcon: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  avatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextInfo: {
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  headerDisplayName: {
+    fontSize: 24,
+    fontFamily: fonts.bebasNeue.bold,
+    color: 'white',
+    letterSpacing: 1.2,
+  },
+
+  headerRoleBadge: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 20,
+    marginTop: 2,
+  },
+  headerRoleText: {
+    fontSize: 10,
+    fontFamily: fonts.poppins.bold,
+    color: 'white',
+    marginLeft: 4,
+  },
+  headerEditBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    marginHorizontal: 25,
+    borderRadius: 20,
+    paddingVertical: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+    marginTop: 20,
+    marginBottom: 25,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 22,
+    fontFamily: fonts.bebasNeue.bold,
+    color: COLORS.primary,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontFamily: fonts.poppins.medium,
+    color: COLORS.gray,
+  },
+  statDivider: {
+    width: 1,
+    height: '60%',
+    backgroundColor: '#F0F0F0',
+    alignSelf: 'center',
+  },
+  menuContainer: {
+    paddingHorizontal: 25,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontFamily: fonts.bebasNeue.bold,
+    color: COLORS.gray,
+    marginBottom: 8,
+    marginLeft: 5,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  menuBox: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+    marginBottom: 20,
+  },
+  menuTitle: {
+    fontFamily: fonts.poppins.bold,
+    fontSize: 13,
+    color: COLORS.dark,
+  },
+  menuDesc: {
+    fontFamily: fonts.poppins.regular,
+    fontSize: 10,
+    color: COLORS.gray,
+  },
+  footerMenu: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+    marginBottom: 30,
+  },
+  versionInfo: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  versionText: {
+    fontSize: 11,
+    fontFamily: fonts.poppins.regular,
+    color: COLORS.gray,
+  },
+  madeWithText: {
+    fontSize: 9,
+    fontFamily: fonts.poppins.bold,
+    color: 'rgba(128, 0, 0, 0.4)',
+    marginTop: 2,
+  },
+  dialog: {
+    borderRadius: 25,
+    backgroundColor: 'white',
+  },
+  dialogTitle: {
+    textAlign: 'center',
+    fontFamily: fonts.bebasNeue.bold,
+    fontSize: 24,
+  },
+  dialogContent: {
+    textAlign: 'center',
+    fontFamily: fonts.poppins.regular,
+    color: COLORS.gray,
+  },
+  dialogActions: {
+    justifyContent: 'space-around',
+    paddingBottom: 20,
+  },
+  btnLabel: {
+    fontFamily: fonts.poppins.bold,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontFamily: fonts.poppins.medium,
+    color: COLORS.gray,
+  },
 });
 
 export default ProfileScreen;

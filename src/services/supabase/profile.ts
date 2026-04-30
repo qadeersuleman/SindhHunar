@@ -3,29 +3,28 @@ import RNFS from 'react-native-fs';
 import { decode } from 'base64-arraybuffer';
 
 export interface UserProfile {
-  id?: string;
-  user_id: string;
-  full_name: string | null;
+  id: string; // This is the auth.uid()
+  name: string | null;
+  email: string | null;
   phone: string | null;
-  birth_date: string | null;
-  gender: string | null;
   avatar_url: string | null;
+  birthdate: string | null;
+  gender: string | null;
+  role: 'customer' | 'artisan' | 'admin';
   updated_at?: string;
 }
 
 /**
  * Fetch the profile for the currently logged-in user.
- * Returns null if no profile row exists yet.
  */
 export const getProfile = async (userId: string): Promise<UserProfile | null> => {
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('user_id', userId)
+    .eq('id', userId)
     .single();
 
   if (error && error.code !== 'PGRST116') {
-    // PGRST116 = "no rows returned", which is expected for new users
     throw error;
   }
 
@@ -35,10 +34,10 @@ export const getProfile = async (userId: string): Promise<UserProfile | null> =>
 /**
  * Upsert (create or update) the user's profile.
  */
-export const upsertProfile = async (profile: UserProfile): Promise<void> => {
+export const upsertProfile = async (profile: Partial<UserProfile> & { id: string }): Promise<void> => {
   const { error } = await supabase
     .from('profiles')
-    .upsert({ ...profile, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    .upsert(profile, { onConflict: 'id' });
 
   if (error) throw error;
 };

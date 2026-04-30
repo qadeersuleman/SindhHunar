@@ -24,7 +24,7 @@ import Animated, {
   useAnimatedScrollHandler,
 } from 'react-native-reanimated';
 import { fonts } from '../../utils/fonts';
-import { useAuthContext } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../context/ToastContext';
 import { useProfile, useSaveProfile } from '../../hooks/useProfile';
 import { TextInput as PaperInput, Button as PaperButton, IconButton, Portal, Modal as PaperModal } from 'react-native-paper';
@@ -42,21 +42,12 @@ const COLORS = {
 
 
 const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, route }) => {
-  const { user } = useAuthContext();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const scrollY = useSharedValue(0);
   const [showPicker, setShowPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGenderPicker, setShowGenderPicker] = useState(false);
-
-  // Handle return from CameraScreen
-  useEffect(() => {
-    if (route.params?.avatarUri) {
-      setLocalAvatarUri(route.params.avatarUri);
-      setDisplayAvatar(route.params.avatarUri);
-      navigation.setParams({ avatarUri: undefined });
-    }
-  }, [route.params?.avatarUri]);
 
   const { data: profile, isLoading } = useProfile(user?.id);
   const { mutateAsync: saveProfile, isPending: isSaving } = useSaveProfile();
@@ -68,15 +59,57 @@ const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
   const [localAvatarUri, setLocalAvatarUri] = useState<string | undefined>();
   const [displayAvatar, setDisplayAvatar] = useState('');
 
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const lastProcessedUri = React.useRef<string | undefined>(undefined);
+
+  // Consolidated initialization logic
   useEffect(() => {
+    console.log('PersonalInfoScreen: Initialization check', { hasInitialized, hasProfile: !!profile, hasParams: !!route.params });
+    
+    if (hasInitialized) return;
+
+    // Priority 1: Check route params (returning from camera)
+    if (route.params && (route.params.name !== undefined || route.params.avatarUri || route.params.displayAvatar)) {
+      console.log('PersonalInfoScreen: Initializing from route.params');
+      const { 
+        avatarUri, 
+        name: retName, 
+        phone: retPhone, 
+        birthDate: retBirthDate, 
+        gender: retGender,
+        displayAvatar: retDisplay,
+        localAvatarUri: retLocal
+      } = route.params;
+      
+      if (avatarUri && avatarUri !== lastProcessedUri.current) {
+        lastProcessedUri.current = avatarUri;
+        setLocalAvatarUri(avatarUri);
+        setDisplayAvatar(avatarUri);
+      } else if (retDisplay) {
+        setDisplayAvatar(retDisplay);
+        if (retLocal) setLocalAvatarUri(retLocal);
+      }
+
+      if (retName !== undefined) setName(retName);
+      if (retPhone !== undefined) setPhone(retPhone);
+      if (retBirthDate !== undefined) setBirthDate(retBirthDate);
+      if (retGender !== undefined) setGender(retGender);
+
+      setHasInitialized(true);
+      return;
+    }
+
+    // Priority 2: Initialize from profile (initial load)
     if (profile) {
-      setName(profile.full_name || '');
+      console.log('PersonalInfoScreen: Initializing from profile data');
+      setName(profile.name || '');
       setPhone(profile.phone || '');
-      setBirthDate(profile.birth_date || '');
+      setBirthDate(profile.birthdate || '');
       setGender(profile.gender || '');
       setDisplayAvatar(profile.avatar_url || '');
+      setHasInitialized(true);
     }
-  }, [profile]);
+  }, [profile, route.params, hasInitialized]);
 
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
@@ -91,20 +124,23 @@ const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
     if (!user?.id) return;
     try {
       await saveProfile({
-        userId: user.id,
+        id: user.id,
         profile: {
-          full_name: name || null,
+          email: user.email, // Added to fix NOT NULL constraint error
+          name: name || user.name || user.email?.split('@')[0] || 'User',
           phone: phone || null,
-          birth_date: birthDate || null,
+          birthdate: birthDate || null,
           gender: gender || null,
           avatar_url: displayAvatar || null,
         },
         localAvatarUri,
       });
       showToast({ message: 'Profile saved successfully!', type: 'success' });
-      navigation.navigate('Main');
-    } catch (e) {
-      showToast({ message: 'Could not save profile.', type: 'error' });
+      const targetScreen = profile?.role === 'admin' ? 'AdminMain' : profile?.role === 'artisan' ? 'SellerMain' : 'Main';
+      navigation.navigate(targetScreen);
+    } catch (e: any) {
+      console.error('Save Profile Error Details:', JSON.stringify(e, null, 2));
+      showToast({ message: e.message || e.details || 'Could not save profile.', type: 'error' });
     }
   };
 
@@ -119,10 +155,15 @@ const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
 
   const handleCamera = () => {
     setShowPicker(false);
-    navigation.navigate('Camera');
+    console.log('PersonalInfoScreen: Navigating to Camera with existing data:', { name, phone, birthDate, gender });
+    // Pass current form data to Camera screen so it can be returned
+    navigation.navigate('Camera', {
+      existingData: { name, phone, birthDate, gender, displayAvatar, localAvatarUri }
+    });
   };
 
-  if (isLoading) {
+  // Only show full loading if we have no profile data yet and no initialized state
+  if (isLoading && !hasInitialized && !profile) {
     return (
       <View className="flex-1 justify-center items-center bg-[#FAF9F6] gap-4">
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -176,7 +217,7 @@ const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
         <View className="items-center mb-8">
           <Animated.View entering={FadeInDown.duration(600)} className="w-[120px] h-[120px] rounded-full p-1 border-2 border-[#C5A059] border-dashed mb-4 relative">
             {displayAvatar ? (
-              <Image source={{ uri: displayAvatar }} className="flex-1 rounded-full" />
+              <Image key={displayAvatar} source={{ uri: displayAvatar }} className="flex-1 rounded-full" />
             ) : (
               <View className="flex-1 rounded-full bg-[#800000]/5 justify-center items-center">
                 <Icon name="person" size={50} color={COLORS.secondary} />
@@ -207,8 +248,9 @@ const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
             mode="outlined"
             activeOutlineColor={COLORS.primary}
             outlineColor="#E5E7EB"
-            style={{ backgroundColor: 'white' }}
+            style={{ backgroundColor: 'white', height: 56, fontFamily: fonts.poppins.regular }}
             left={<PaperInput.Icon icon="account-outline" color={COLORS.primary} />}
+            theme={{ roundness: 16, colors: { background: 'white' } }}
           />
 
           <PaperInput
@@ -219,8 +261,9 @@ const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
             keyboardType="phone-pad"
             activeOutlineColor={COLORS.primary}
             outlineColor="#E5E7EB"
-            style={{ backgroundColor: 'white' }}
+            style={{ backgroundColor: 'white', height: 56, fontFamily: fonts.poppins.regular }}
             left={<PaperInput.Icon icon="phone-outline" color={COLORS.primary} />}
+            theme={{ roundness: 16, colors: { background: 'white' } }}
           />
 
           <TouchableOpacity onPress={() => setShowDatePicker(true)} activeOpacity={1}>
@@ -229,10 +272,12 @@ const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
               value={birthDate}
               editable={false}
               mode="outlined"
+              activeOutlineColor={COLORS.primary}
               outlineColor="#E5E7EB"
-              style={{ backgroundColor: 'white' }}
+              style={{ backgroundColor: 'white', height: 56, fontFamily: fonts.poppins.regular }}
               left={<PaperInput.Icon icon="calendar-outline" color={COLORS.primary} />}
               right={<PaperInput.Icon icon="chevron-down" />}
+              theme={{ roundness: 16, colors: { background: 'white' } }}
             />
           </TouchableOpacity>
 
@@ -242,10 +287,12 @@ const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
               value={gender}
               editable={false}
               mode="outlined"
+              activeOutlineColor={COLORS.primary}
               outlineColor="#E5E7EB"
-              style={{ backgroundColor: 'white' }}
+              style={{ backgroundColor: 'white', height: 56, fontFamily: fonts.poppins.regular }}
               left={<PaperInput.Icon icon="gender-male-female" color={COLORS.primary} />}
               right={<PaperInput.Icon icon="chevron-down" />}
+              theme={{ roundness: 16, colors: { background: 'white' } }}
             />
           </TouchableOpacity>
 
@@ -276,7 +323,9 @@ const PersonalInfoScreen: React.FC<{ navigation: any; route: any }> = ({ navigat
           display="default"
           maximumDate={new Date()}
           onChange={(event: any, selected?: Date) => {
-            setShowDatePicker(false);
+            if (event.type === 'set' || event.type === 'dismissed') {
+              setShowDatePicker(false);
+            }
             if (event.type === 'set' && selected) {
               const formatted = selected.toLocaleDateString('en-GB', {
                 day: '2-digit',

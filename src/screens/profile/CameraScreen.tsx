@@ -61,21 +61,40 @@ const CameraScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, r
     try {
       if (photoOutput == null) return;
       setIsTakingPhoto(true);
+      console.log('CameraScreen: Taking photo...');
       const photoFile = await photoOutput.capturePhotoToFile(
         { flashMode: 'off' },
         {}
       );
       setIsTakingPhoto(false);
+      console.log('CameraScreen: Photo captured:', photoFile);
 
-      // Instead of calling a non-serializable function passed via params, 
-      // navigate back and pass the URI as a parameter.
+      // Using type casting to avoid property name discrepancies between different library versions
+      const photoPath = (photoFile as any).path || (photoFile as any).filePath;
+      if (!photoPath) {
+        console.error('CameraScreen: No photo path found in photoFile');
+        return;
+      }
+      
+      const uri = photoPath.startsWith('file://') ? photoPath : `file://${photoPath}`;
+      console.log('CameraScreen: Final URI:', uri);
+
+      // Return to PersonalInfo and pass back the captured URI AND the existing data
+      console.log('CameraScreen: Navigating back to PersonalInfo with params:', {
+        avatarUri: uri,
+        ...route.params?.existingData
+      });
+
       navigation.navigate({
         name: 'PersonalInfo',
-        params: { avatarUri: `file://${photoFile.filePath}` },
+        params: { 
+          avatarUri: uri,
+          ...route.params?.existingData
+        },
         merge: true,
       });
     } catch (e) {
-      console.error(e);
+      console.error('Camera capture error:', e);
       setIsTakingPhoto(false);
     }
   };
@@ -93,7 +112,17 @@ const CameraScreen: React.FC<{ navigation: any; route: any }> = ({ navigation, r
       <SafeAreaView style={styles.overlay}>
         {/* Top Controls */}
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.controlBtn}>
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('CameraScreen: Closing camera, returning existing data:', route.params?.existingData);
+              navigation.navigate({
+                name: 'PersonalInfo',
+                params: { ...route.params?.existingData },
+                merge: true,
+              });
+            }} 
+            style={styles.controlBtn}
+          >
             <Icon name="close" size={26} color="white" />
           </TouchableOpacity>
 
