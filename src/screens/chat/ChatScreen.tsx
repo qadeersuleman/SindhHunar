@@ -33,7 +33,7 @@ import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import Tts from 'react-native-tts';
 import { PermissionsAndroid, Alert } from 'react-native';
 
-const audioRecorderPlayer = new AudioRecorderPlayer();
+const audioRecorderPlayer = AudioRecorderPlayer;
 
 const { width } = Dimensions.get('window');
 
