@@ -11,11 +11,18 @@ import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { images } from '../utils/images';
 
+import Icon from 'react-native-vector-icons/Ionicons';
+import { TouchableOpacity, Text } from 'react-native';
+import { fonts } from '../utils/fonts';
+
 const { width } = Dimensions.get('window');
 
 interface PremiumHeaderProps {
   children: React.ReactNode;
   headerContent?: React.ReactNode;
+  title?: string;
+  showBackButton?: boolean;
+  onBackPress?: () => void;
   height?: number;
   overlap?: number;
   containerStyle?: ViewStyle;
@@ -25,6 +32,9 @@ interface PremiumHeaderProps {
 const PremiumHeader: React.FC<PremiumHeaderProps> = ({ 
   children, 
   headerContent, 
+  title,
+  showBackButton,
+  onBackPress,
   height = 160, 
   overlap = 30,
   containerStyle,
@@ -44,6 +54,16 @@ const PremiumHeader: React.FC<PremiumHeaderProps> = ({
         />
         <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
           <View style={styles.headerInner}>
+            <View style={styles.headerTopRow}>
+              {showBackButton && (
+                <TouchableOpacity onPress={onBackPress} style={styles.backButton}>
+                  <Icon name="arrow-back" size={24} color="white" />
+                </TouchableOpacity>
+              )}
+              {title && (
+                <Text style={styles.headerTitle}>{title}</Text>
+              )}
+            </View>
             {headerContent}
           </View>
         </SafeAreaView>
@@ -73,6 +93,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     justifyContent: 'flex-end',
     paddingBottom: 35,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontFamily: fonts.bebasNeue.bold,
+    color: 'white',
+    letterSpacing: 2,
   },
 
   contentArea: {

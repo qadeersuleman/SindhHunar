@@ -5,8 +5,13 @@ import {
   EXPO_PUBLIC_API_URL,
   EXPO_PUBLIC_MOCK_API,
   EXPO_PUBLIC_ENABLE_STORYBOOK,
-  GOOGLE_WEB_CLIENT_ID
+  GOOGLE_WEB_CLIENT_ID,
+  GOOGLE_MAPS_API_KEY,
+  GEMINI_API_KEY
 } from '@env';
+
+// AI Configuration
+export const GEMINI_KEY = GEMINI_API_KEY || '';
 
 // API Configuration
 export const API_BASE_URL = EXPO_PUBLIC_API_URL || 'https://api.sindhhunar.com';
@@ -18,6 +23,7 @@ export const SUPABASE_ANON_KEY = EXPO_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key
 
 // Google Auth Configuration
 export const GOOGLE_CLIENT_ID = GOOGLE_WEB_CLIENT_ID || '930569299554-6oiqdgp3mnhsv5m0ju4bporcbvg1b2lr.apps.googleusercontent.com';
+export const MAPS_API_KEY = GOOGLE_MAPS_API_KEY || 'AIzaSyDyCyyqxk0jg1BNHfM4t8jE_XXtRTNiRok';
 
 // App Configuration
 export const APP_NAME = 'Sindh Hunar';
@@ -160,6 +166,7 @@ export const config = {
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
   GOOGLE_CLIENT_ID,
+  MAPS_API_KEY,
   APP_NAME,
   APP_VERSION,
   APP_DESCRIPTION,

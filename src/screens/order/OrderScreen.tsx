@@ -67,25 +67,7 @@ const JholiScreen: React.FC = () => {
 
     if (cartItems.length === 0) return;
 
-    const artisanId = cartItems[0].product.artisan_id || cartItems[0].product.artisanId || '';
-
-    createOrder({
-      customer_id: user.id,
-      artisan_id: artisanId,
-      items: cartItems,
-      total_amount: totalAmount + 150,
-      shipping_address: { street: 'Sample Street', city: 'Karachi', state: 'Sindh', country: 'Pakistan' },
-      phone: '03001234567',
-      notes: 'Please pack carefully.'
-    }, {
-      onSuccess: () => {
-        clearCart();
-        showToast({ message: t('jholi.orderSuccess', { defaultValue: 'Order placed successfully!' }), type: 'success' });
-      },
-      onError: (error) => {
-        showToast({ message: error.message, type: 'error' });
-      }
-    });
+    navigation.navigate('Checkout' as never);
   };
 
   const calculateTotal = () => totalAmount;

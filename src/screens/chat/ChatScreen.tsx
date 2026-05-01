@@ -28,6 +28,12 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '../../utils/fonts';
 import PremiumHeader from '../../components/PremiumHeader';
+import { generateAIResponse, ChatMessage as AIChatMessage } from '../../services/api/aiService';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import Tts from 'react-native-tts';
+import { PermissionsAndroid, Alert } from 'react-native';
+
+const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +53,8 @@ interface Message {
   sender: 'user' | 'artisan';
   timestamp: Date;
   isTyping?: boolean;
+  isAudio?: boolean;
+  audioPath?: string;
 }
 
 const TypingIndicator = () => {
@@ -96,7 +104,27 @@ const ChatScreen: React.FC<any> = ({ navigation }) => {
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordTime, setRecordTime] = useState('00:00');
   const flatListRef = useRef<any>(null);
+
+  useEffect(() => {
+    // TTS Setup
+    Tts.getInitStatus().then(() => {
+      Tts.setDefaultLanguage(i18n.language === 'sd' ? 'sd-PK' : 'en-US');
+    });
+
+    return () => {
+      Tts.stop();
+      audioRecorderPlayer.stopRecorder();
+      audioRecorderPlayer.removeRecordBackListener();
+    };
+  }, []);
+
+  const handleSpeech = (text: string) => {
+    Tts.stop();
+    Tts.speak(text);
+  };
 
   const typeWriter = (fullText: string) => {
     let currentText = '';
@@ -121,12 +149,13 @@ const ChatScreen: React.FC<any> = ({ navigation }) => {
     }, 30);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputText.trim()) return;
 
+    const userText = inputText.trim();
     const userMsg: Message = {
       id: Date.now().toString(),
-      text: inputText.trim(),
+      text: userText,
       sender: 'user',
       timestamp: new Date(),
     };
@@ -135,16 +164,101 @@ const ChatScreen: React.FC<any> = ({ navigation }) => {
     setInputText('');
     Keyboard.dismiss();
     
-    setTimeout(() => {
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        const replyText = isRTL 
-          ? 'مهرباني ڪري انتظار ڪريو، مان جلد ئي توهان کي جواب ڏيندس.' 
-          : 'Please wait a moment, I will get back to you shortly.';
-        typeWriter(replyText);
-      }, 2000);
-    }, 500);
+    // Prepare history for AI
+    const history: AIChatMessage[] = messages.map(m => ({
+      role: m.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: m.text }]
+    }));
+
+    setIsTyping(true);
+    try {
+      const aiResponse = await generateAIResponse(userText, history, i18n.language);
+      setIsTyping(false);
+      typeWriter(aiResponse);
+      
+      // Auto-speak AI response if user just used voice? Or maybe just provide a button.
+      // For now, let's just provide the button.
+    } catch (error) {
+      setIsTyping(false);
+      const errorMsg = isRTL 
+        ? 'معاف ڪجو، ڪجهه غلط ٿي ويو.' 
+        : 'Sorry, something went wrong. Please try again.';
+      typeWriter(errorMsg);
+    }
+  };
+
+  const checkPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const grants = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+
+        if (
+          grants['android.permission.RECORD_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          return true;
+        } else {
+          Alert.alert('Permissions Required', 'Please allow microphone access to record audio.');
+          return false;
+        }
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const onStartRecord = async () => {
+    const hasPermission = await checkPermissions();
+    if (!hasPermission) return;
+
+    setIsRecording(true);
+    const result = await audioRecorderPlayer.startRecorder();
+    audioRecorderPlayer.addRecordBackListener((e) => {
+      setRecordTime(audioRecorderPlayer.mmssss(Math.floor(e.currentPosition)));
+      return;
+    });
+  };
+
+  const onStopRecord = async () => {
+    const result = await audioRecorderPlayer.stopRecorder();
+    audioRecorderPlayer.removeRecordBackListener();
+    setIsRecording(false);
+    setRecordTime('00:00');
+    
+    // In a real app, you'd send the audio file to a transcription service.
+    // For this demo, since we want "WhatsApp style", let's simulate transcription 
+    // or tell the user we're processing their voice.
+    
+    // Let's add the audio message to the list
+    const audioMsg: Message = {
+      id: Date.now().toString(),
+      text: isRTL ? '🎤 آڊيو پيغام' : '🎤 Audio Message',
+      sender: 'user',
+      timestamp: new Date(),
+      isAudio: true,
+      audioPath: result
+    };
+    setMessages(prev => [...prev, audioMsg]);
+    
+    // Simulate AI response for the voice
+    setIsTyping(true);
+    setTimeout(async () => {
+        try {
+            const aiResponse = await generateAIResponse("The user sent a voice message. Please respond briefly as a Sindhi artisan.", messages.map(m => ({
+                role: m.sender === 'user' ? 'user' : 'model',
+                parts: [{ text: m.text }]
+            })), i18n.language);
+            setIsTyping(false);
+            typeWriter(aiResponse);
+        } catch (e) {
+            setIsTyping(false);
+        }
+    }, 1000);
   };
 
   useEffect(() => {
@@ -179,6 +293,11 @@ const ChatScreen: React.FC<any> = ({ navigation }) => {
             {item.text}
           </Text>
           <View style={styles.messageFooter}>
+            {!isUser && (
+              <TouchableOpacity onPress={() => handleSpeech(item.text)} style={styles.speakerIcon}>
+                <Icon name="volume-medium-outline" size={16} color={COLORS.primary} />
+              </TouchableOpacity>
+            )}
             <Text style={[
               styles.timestamp,
               { color: isUser ? 'rgba(255,255,255,0.7)' : COLORS.gray }
@@ -248,22 +367,27 @@ const ChatScreen: React.FC<any> = ({ navigation }) => {
       >
         <View style={styles.inputContainer}>
           <View style={styles.inputBar}>
-            <TouchableOpacity style={styles.inputAction}>
-              <Icon name="happy-outline" size={24} color={COLORS.gray} />
+            <TouchableOpacity 
+              onPressIn={onStartRecord}
+              onPressOut={onStopRecord}
+              style={styles.inputAction}
+            >
+              <Icon name={isRecording ? "mic" : "mic-outline"} size={24} color={isRecording ? COLORS.primary : COLORS.gray} />
             </TouchableOpacity>
-            
+
             <TextInput
               style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
-              placeholder={isRTL ? 'پيغام لکو...' : 'Type a message...'}
+              placeholder={isRecording ? `${t('Recording')}... ${recordTime}` : (isRTL ? 'پيغام لکو...' : 'Type a message...')}
               placeholderTextColor="#999"
               value={inputText}
               onChangeText={setInputText}
               multiline
+              editable={!isRecording}
             />
             
             <TouchableOpacity 
               onPress={handleSend}
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || isRecording}
               style={styles.sendButtonContainer}
             >
               <LinearGradient
@@ -370,6 +494,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginTop: 4,
+  },
+  speakerIcon: {
+    marginRight: 8,
+    padding: 2,
   },
   timestamp: {
     fontSize: 10,

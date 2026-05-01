@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { fonts } from '../../utils/fonts';
 import { RESPONSIVE } from '../../utils/responsive';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { supabase } from '../../services/supabase/client';
 
 const { width } = Dimensions.get('window');
 
@@ -39,7 +40,45 @@ const OrderHistoryScreen: React.FC = () => {
   const isRTL = i18n.language === 'sd';
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { data: orders, isLoading } = useMyOrders(user?.id || '');
+  const { data: orders, isLoading, refetch } = useMyOrders(user?.id || '');
+
+  useEffect(() => {
+    console.log('OrderHistoryScreen - Current User ID:', user?.id);
+    if (orders) {
+      console.log('OrderHistoryScreen - Orders fetched:', orders.length);
+      if (orders.length > 0) {
+        console.log('First order data:', JSON.stringify(orders[0], null, 2));
+      }
+    }
+  }, [user?.id, orders]);
+  React.useEffect(() => {
+    if (!user?.id) return;
+
+    // Use a unique channel name to avoid conflicts during re-renders
+    const channelName = `order-updates-${user.id}-${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `customer_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('[REAL-TIME] Order update detected:', payload);
+          refetch();
+        }
+      )
+      .subscribe((status) => {
+        console.log(`[REAL-TIME] Subscription status for ${channelName}:`, status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, refetch]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -69,15 +108,51 @@ const OrderHistoryScreen: React.FC = () => {
 
       <View style={styles.divider} />
 
+      {/* User Info Section */}
+      <View style={[styles.userInfoContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <Icon name="person-outline" size={16} color={COLORS.gray} />
+        <Text style={[styles.userName, { textAlign: isRTL ? 'right' : 'left' }]}>
+          {item.customer?.name || t('common.user')} • {item.phone || item.customer?.phone}
+        </Text>
+      </View>
+
+      <View style={[styles.addressContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <Icon name="location-outline" size={16} color={COLORS.gray} />
+        <Text style={[styles.addressText, { textAlign: isRTL ? 'right' : 'left' }]}>
+          {item.shipping_address?.street}, {item.shipping_address?.city}
+        </Text>
+      </View>
+
+      <View style={styles.divider} />
+
       <View style={[styles.orderContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <View style={styles.shopInfo}>
           <Text style={styles.shopName}>{item.artisans?.shop_name || 'Artisan'}</Text>
-          <Text style={styles.itemCount}>{item.items?.length || 0} items</Text>
+          <Text style={styles.itemCount}>
+            {item.items?.reduce((acc: number, i: any) => acc + (i.quantity || 0), 0) || 0} {isRTL ? 'شيون' : 'Items'}
+          </Text>
+        </View>
+        <View style={styles.paymentBadgeContainer}>
+          <Text style={styles.paymentMethodText}>
+            {item.payments?.[0]?.payment_method?.toUpperCase() || 'CASH'}
+          </Text>
         </View>
         <View style={styles.priceInfo}>
           <Text style={styles.totalLabel}>{t('jholi.total')}</Text>
           <Text style={styles.totalPrice}>Rs. {item.total_amount}</Text>
         </View>
+      </View>
+
+      {/* Items Preview */}
+      <View style={styles.itemsPreview}>
+        {item.items?.slice(0, 2).map((subItem: any, idx: number) => (
+          <Text key={idx} style={[styles.itemDetailText, { textAlign: isRTL ? 'right' : 'left' }]}>
+            • {subItem.quantity}x {subItem.product_name || 'Product'} (Rs. {subItem.price})
+          </Text>
+        ))}
+        {item.items?.length > 2 && (
+          <Text style={styles.moreItemsText}>+{item.items.length - 2} more items...</Text>
+        )}
       </View>
 
       <TouchableOpacity 
@@ -120,7 +195,7 @@ const OrderHistoryScreen: React.FC = () => {
           </Text>
           <TouchableOpacity 
             style={styles.shopNowButton}
-            onPress={() => navigation.navigate('Bazaar' as never)}
+            onPress={() => (navigation as any).navigate('Main', { screen: 'Bazaar' })}
           >
             <Text style={styles.shopNowText}>{isRTL ? 'خريداري ڪريو' : 'Shop Now'}</Text>
           </TouchableOpacity>
@@ -198,6 +273,48 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.lightGray,
     marginBottom: 15,
   },
+  userInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 10,
+  },
+  userName: {
+    fontSize: 14,
+    fontFamily: fonts.poppins.bold,
+    color: COLORS.dark,
+    flex: 1,
+  },
+  addressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    gap: 10,
+  },
+  addressText: {
+    fontSize: 13,
+    fontFamily: fonts.poppins.regular,
+    color: COLORS.gray,
+    flex: 1,
+  },
+  itemsPreview: {
+    backgroundColor: COLORS.lightGray + '50',
+    padding: 12,
+    borderRadius: 15,
+    marginBottom: 15,
+  },
+  itemDetailText: {
+    fontSize: 12,
+    fontFamily: fonts.poppins.medium,
+    color: COLORS.dark,
+    marginBottom: 4,
+  },
+  moreItemsText: {
+    fontSize: 11,
+    fontFamily: fonts.poppins.regular,
+    color: COLORS.secondary,
+    fontStyle: 'italic',
+  },
   orderContent: {
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -218,6 +335,18 @@ const styles = StyleSheet.create({
   },
   priceInfo: {
     alignItems: 'flex-end',
+  },
+  paymentBadgeContainer: {
+    backgroundColor: COLORS.lightGray,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  paymentMethodText: {
+    fontSize: 9,
+    fontFamily: fonts.poppins.bold,
+    color: COLORS.gray,
   },
   totalLabel: {
     fontSize: 10,

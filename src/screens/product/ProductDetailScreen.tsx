@@ -31,6 +31,7 @@ import { RESPONSIVE } from '../../utils/responsive';
 import { fonts } from '../../utils/fonts';
 import { useToast } from '../../context/ToastContext';
 import { useCart } from '../../store/cartStore';
+import { useAuth } from '../../hooks/useAuth';
 
 
 const { width, height } = Dimensions.get('window');
@@ -112,6 +113,18 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
     };
   });
 
+  const navTitleStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [HEADER_HEIGHT - 70, HEADER_HEIGHT - 50],
+      [0, 1],
+      Extrapolate.CLAMP
+    );
+    return {
+      opacity: opacity,
+    };
+  });
+
   const { addToCart } = useCart();
 
   const handleAddToCart = () => {
@@ -125,11 +138,19 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
     });
   };
 
+  const { user } = useAuth();
+
   const handleBuyNow = () => {
-    showToast({
-      message: t('common.proceedingToCheckout', { defaultValue: 'Proceeding to Checkout...' }),
-      type: 'info'
-    });
+    if (!user) {
+      showToast({ message: t('common.pleaseLogin', { defaultValue: 'Please login to continue' }), type: 'info' });
+      return;
+    }
+
+    // Add to cart first so checkout has items
+    addToCart(item, quantity);
+    
+    // Navigate to Checkout
+    navigation.navigate('Checkout' as never);
   };
 
   const discountedPrice = (item.price || 0) * 0.9; // Example 10% discount
@@ -185,7 +206,7 @@ const ProductDetailScreen: React.FC<any> = ({ route, navigation }) => {
           </TouchableOpacity>
           <Animated.Text 
             className="text-[16px] text-[#1A1A1A]"
-            style={[{ fontFamily: fonts.poppins.bold, opacity: scrollY.value > HEADER_HEIGHT - 60 ? 1 : 0 }]}
+            style={[{ fontFamily: fonts.poppins.bold }, navTitleStyle]}
           >
             {item.nameKey ? t(item.nameKey) : item.name}
           </Animated.Text>

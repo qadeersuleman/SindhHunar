@@ -5,9 +5,9 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   ScrollView,
   Image,
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -39,21 +39,24 @@ const COLORS = {
 };
 
 const AdminDashboard: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, loading: authLoading } = useAuth();
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: logout }
-      ]
-    );
+  const handleLogout = () => setLogoutModalVisible(true);
+
+  const confirmLogout = async () => {
+    try {
+      await logout();
+      // AppNavigator will handle redirect automatically
+    } catch (e) {
+      // logout error is handled inside authStore
+    } finally {
+      setLogoutModalVisible(false);
+    }
   };
 
   // Modal State
@@ -69,9 +72,7 @@ const AdminDashboard: React.FC = () => {
   const fetchProfiles = async () => {
     setLoading(true);
     const { profiles, error } = await getAllProfiles();
-    if (error) {
-      Alert.alert('Error', 'Failed to fetch profiles');
-    } else {
+    if (!error) {
       setProfiles(profiles);
     }
     setLoading(false);
@@ -99,15 +100,11 @@ const AdminDashboard: React.FC = () => {
     setIsUpdating(true);
     const { error } = await updateUserRole(selectedUser.id, newRole);
     
-    if (newRole !== 'artisan') {
-        // If downgraded from artisan, optionally delete artisan record
-        await deleteArtisanRecord(selectedUser.id);
-    }
+    // At this point newRole is already narrowed to 'customer' | 'admin'
+    // (the 'artisan' case returned early above), so always clean up artisan record
+    await deleteArtisanRecord(selectedUser.id);
 
-    if (error) {
-      Alert.alert('Error', 'Failed to update role');
-    } else {
-      Alert.alert('Success', `Role updated to ${newRole}`);
+    if (!error) {
       fetchProfiles();
     }
     setIsUpdating(false);
@@ -115,18 +112,13 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleArtisanSubmit = async () => {
-    if (!selectedUser || !shopName || !specialty) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
+    if (!selectedUser || !shopName || !specialty) return;
 
     setIsUpdating(true);
     try {
-      // 1. Update role to artisan
       const { error: roleError } = await updateUserRole(selectedUser.id, 'artisan');
       if (roleError) throw roleError;
 
-      // 2. Create artisan record
       const { error: artisanError } = await upsertArtisanRecord({
         owner_id: selectedUser.id,
         shop_name: shopName,
@@ -136,13 +128,12 @@ const AdminDashboard: React.FC = () => {
       });
       if (artisanError) throw artisanError;
 
-      Alert.alert('Success', `${selectedUser.name} is now an Artisan!`);
       setArtisanModalVisible(false);
       setShopName('');
       setSpecialty('');
       fetchProfiles();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create artisan profile');
+      // silently fail or show in-line
     } finally {
       setIsUpdating(false);
     }
@@ -369,9 +360,117 @@ const AdminDashboard: React.FC = () => {
             Go Back
           </Button>
         </Modal>
+
+        {/* ── Logout Confirmation Modal ── */}
+        <Modal
+          visible={logoutModalVisible}
+          onDismiss={() => setLogoutModalVisible(false)}
+          contentContainerStyle={styles.logoutModal}
+        >
+          {/* Icon circle */}
+          <View style={styles.logoutIconCircle}>
+            <Icon name="log-out-outline" size={32} color="#FF3B30" />
+          </View>
+
+          <Text style={styles.logoutTitle}>Logging Out?</Text>
+          <Text style={styles.logoutSubtitle}>
+            Are you sure you want to leave the Admin Panel?
+          </Text>
+
+          {/* Confirm button */}
+          <TouchableOpacity
+            style={styles.logoutConfirmBtn}
+            onPress={confirmLogout}
+            disabled={authLoading}
+          >
+            {authLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Icon name="log-out-outline" size={18} color="#fff" />
+                <Text style={styles.logoutConfirmText}>Yes, Logout</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Cancel button */}
+          <TouchableOpacity
+            style={styles.logoutCancelBtn}
+            onPress={() => setLogoutModalVisible(false)}
+          >
+            <Text style={styles.logoutCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </Modal>
       </Portal>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  logoutModal: {
+    backgroundColor: '#FFFFFF',
+    margin: 28,
+    padding: 28,
+    borderRadius: 28,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+  },
+  logoutIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFF1F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  logoutTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  logoutSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 28,
+    paddingHorizontal: 8,
+  },
+  logoutConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 14,
+    paddingVertical: 14,
+    width: '100%',
+    marginBottom: 10,
+  },
+  logoutConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  logoutCancelBtn: {
+    paddingVertical: 12,
+    width: '100%',
+    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+  },
+  logoutCancelText: {
+    color: '#374151',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+});
 
 export default AdminDashboard;

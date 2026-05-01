@@ -28,6 +28,7 @@ const authSlice = createSlice({
       state.token = null;
       state.role = null;
       state.isAuthenticated = false;
+      state.isInitialLoading = false; // Ensure navigator doesn't show splash after logout
     },
     setInitialLoading: (state, action: PayloadAction<boolean>) => {
       state.isInitialLoading = action.payload;

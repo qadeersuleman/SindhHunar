@@ -1,26 +1,34 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, StatusBar, Image } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming, 
-  withRepeat, 
-  withSequence, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
   withDelay,
   Easing,
   FadeIn,
   FadeInDown,
   FadeInUp,
-  Layout
 } from 'react-native-reanimated';
 import LinearGradient from 'react-native-linear-gradient';
 import { images } from '../utils/images';
 import { fonts } from '../utils/fonts';
 import { colors } from '../utils/colors';
 
+interface SplashScreenProps {
+  /**
+   * Called once all intro animations have finished (~3.5 s).
+   * The parent should use this to mark the splash as "seen" in AsyncStorage
+   * and unmount this component, so it never shows again.
+   */
+  onFinish?: () => void;
+}
+
 const { width, height } = Dimensions.get('window');
 
-const SplashScreen: React.FC = () => {
+const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const bgScale = useSharedValue(1.1);
   const bgRotate = useSharedValue(0);
   const lineScale = useSharedValue(0);
@@ -62,12 +70,23 @@ const SplashScreen: React.FC = () => {
       -1,
       true
     );
+
+    // ─── AUTO-DISMISS ────────────────────────────────────────────────────────
+    // The last visible animation starts at ~2000ms (loader FadeIn.delay(2000)).
+    // We wait 3500ms total so the user sees the full branded intro, then signal
+    // the parent to mark this as "done" and navigate away.
+    const timer = setTimeout(() => {
+      onFinish?.();
+    }, 3500);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const animatedBgStyle = useAnimatedStyle(() => ({
     transform: [
       { scale: bgScale.value },
-      { rotate: `${bgRotate.value}deg` }
+      { rotate: `${bgRotate.value}deg` },
     ],
   }));
 
@@ -87,7 +106,7 @@ const SplashScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar hidden />
-      
+
       {/* Immersive Background */}
       <Animated.View style={[styles.bgContainer, animatedBgStyle]}>
         <Image source={images.ajrakBg} style={styles.bgImage} />
@@ -101,29 +120,29 @@ const SplashScreen: React.FC = () => {
 
       {/* Main Content Area */}
       <View style={styles.content}>
-        {/* Animated Decorative Circle (Replaces Logo) */}
-        <Animated.View 
+        {/* Animated Decorative Circle */}
+        <Animated.View
           entering={FadeIn.delay(300).duration(1000)}
           style={[styles.decorativeCircle, animatedPulseStyle]}
         >
           <View style={styles.innerCircle}>
-             <View style={styles.dot} />
-             <View style={[styles.ring, { opacity: 0.3 }]} />
-             <View style={[styles.ring, { transform: [{ scale: 1.2 }], opacity: 0.1 }]} />
+            <View style={styles.dot} />
+            <View style={[styles.ring, { opacity: 0.3 }]} />
+            <View style={[styles.ring, { transform: [{ scale: 1.2 }], opacity: 0.1 }]} />
           </View>
         </Animated.View>
 
         <View style={styles.titleWrapper}>
-          <Animated.Text 
+          <Animated.Text
             entering={FadeInUp.delay(600).duration(1000).springify()}
             style={[styles.appName, animatedTextStyle]}
           >
             SINDHHUNAR
           </Animated.Text>
-          
+
           <Animated.View style={[styles.accentLine, animatedLineStyle]} />
-          
-          <Animated.Text 
+
+          <Animated.Text
             entering={FadeInDown.delay(1200).duration(1000)}
             style={styles.tagline}
           >
@@ -133,17 +152,17 @@ const SplashScreen: React.FC = () => {
       </View>
 
       {/* Bottom Loading Indicator */}
-      <Animated.View 
+      <Animated.View
         entering={FadeIn.delay(2000)}
         style={styles.loaderContainer}
       >
         <Text style={styles.loaderText}>BHALE KARI AAYA</Text>
         <View style={styles.loadingBar}>
-          <Animated.View 
-            style={[styles.loadingProgress, { 
-              width: '100%', 
-              backgroundColor: colors.primary 
-            }]} 
+          <Animated.View
+            style={[styles.loadingProgress, {
+              width: '100%',
+              backgroundColor: colors.primary,
+            }]}
           />
         </View>
       </Animated.View>
@@ -184,7 +203,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 2,
-    borderColor: 'rgba(197, 160, 89, 0.5)', // Antique Gold
+    borderColor: 'rgba(197, 160, 89, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -192,7 +211,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#C41E3A', // Primary Red
+    backgroundColor: '#C41E3A',
     shadowColor: '#C41E3A',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
@@ -250,7 +269,7 @@ const styles = StyleSheet.create({
   },
   loadingProgress: {
     height: '100%',
-  }
+  },
 });
 
 export default SplashScreen;

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,83 +7,68 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
-  ActivityIndicator,
-  ScrollView,
+  PermissionsAndroid,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
+import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
+import Geolocation from '@react-native-community/geolocation';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LottieView from 'lottie-react-native';
 import Animated, {
-  FadeInDown,
   SlideInUp,
   FadeOutDown,
   FadeIn,
-  ZoomIn,
   SlideInDown,
 } from 'react-native-reanimated';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { fonts } from '../../utils/fonts';
 import { Card as PaperCard, IconButton, Button as PaperButton } from 'react-native-paper';
+import { config } from '../../config/env';
 
 const { width, height } = Dimensions.get('window');
 
 const COLORS = {
   primary: '#800000',
-  primaryLight: '#9B1B1B',
   secondary: '#C5A059',
-  accent: '#FF6B6B',
   white: '#FFFFFF',
   black: '#1A1A1A',
   grey: '#F5F5F5',
   textGrey: '#666666',
-  lightMaroon: 'rgba(128, 0, 0, 0.06)',
-  success: '#4CAF50',
-  warning: '#FFA726',
 };
 
 const shops = [
-  { id: 1, name: "Ali Grocery Store", lat: 24.8607, lng: 67.0011, address: "Burns Road, Karachi" },
-  { id: 2, name: "Karachi Electronics", lat: 24.8620, lng: 67.0030, address: "Saddar, Karachi" },
-  { id: 3, name: "Bismillah Mart", lat: 24.8585, lng: 67.0000, address: "I.I Chundrigar Rd, Karachi" },
+  { id: 1, name: "Ali Grocery Store", latitude: 24.8607, longitude: 67.0011, address: "Burns Road, Karachi" },
+  { id: 2, name: "Karachi Electronics", latitude: 24.8620, longitude: 67.0030, address: "Saddar, Karachi" },
+  { id: 3, name: "Bismillah Mart", latitude: 24.8585, longitude: 67.0000, address: "I.I Chundrigar Rd, Karachi" },
 ];
 
 const MapScreen = () => {
   const [selectedShop, setSelectedShop] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number, longitude: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const webViewRef = useRef<WebView>(null);
+  const [isTracking, setIsTracking] = useState(false);
+  const [routeInfo, setRouteInfo] = useState<{ distance: number, duration: number } | null>(null);
+  const [routeCoordinates, setRouteCoordinates] = useState<{latitude: number, longitude: number}[]>([]);
+  const [isFetchingRoute, setIsFetchingRoute] = useState(false);
+  const mapRef = useRef<MapView>(null);
+  const watchIdRef = useRef<number | null>(null);
   const navigation = useNavigation<any>();
 
-  // Hide bottom tab bar when on Map screen
+  // Hide bottom tab bar
   useFocusEffect(
     React.useCallback(() => {
       const parent = navigation.getParent();
       if (parent) {
-        parent.setOptions({
-          tabBarStyle: { display: 'none' },
-        });
+        parent.setOptions({ tabBarStyle: { display: 'none' } });
       }
-      
       return () => {
-        handleCloseModal();
         if (parent) {
           parent.setOptions({
             tabBarStyle: { 
-              display: 'flex',
-              backgroundColor: '#FFFFFF',
-              height: 65,
-              position: 'absolute',
-              bottom: 25,
-              left: 20,
-              right: 20,
-              borderRadius: 20,
-              borderTopWidth: 0,
-              elevation: 10,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 5 },
-              shadowOpacity: 0.1,
-              shadowRadius: 10,
-              paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+              display: 'flex', backgroundColor: '#FFFFFF', height: 65, position: 'absolute',
+              bottom: 25, left: 20, right: 20, borderRadius: 20, borderTopWidth: 0,
+              elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 5 },
+              shadowOpacity: 0.1, shadowRadius: 10, paddingBottom: Platform.OS === 'ios' ? 20 : 10,
             },
           });
         }
@@ -91,92 +76,204 @@ const MapScreen = () => {
     }, [navigation])
   );
 
-  const handleCloseModal = () => {
-    setSelectedShop(null);
-    webViewRef.current?.injectJavaScript(`
-      if (window.map) {
-        map.closePopup();
+  useEffect(() => {
+    requestLocationPermission();
+  }, []);
+
+  const requestLocationPermission = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          getCurrentLocation();
+        } else {
+          setIsLoading(false);
+        }
+      } else {
+        getCurrentLocation();
       }
-      true;
-    `);
+    } catch (err) {
+      console.warn(err);
+      setIsLoading(false);
+    }
   };
 
-  const mapHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-      <style>
-        body { margin: 0; padding: 0; background-color: #f0f0f0; }
-        #map { height: 100vh; width: 100vw; }
-        .leaflet-container { background: #f0f0f0; }
-        .custom-div-icon {
-          background: ${COLORS.primary};
-          border: 3px solid white;
-          border-radius: 50%;
-          color: white;
-          width: 36px !important;
-          height: 36px !important;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 4px 15px rgba(128,0,0,0.4);
-          font-size: 16px;
-        }
-      </style>
-    </head>
-    <body>
-      <div id="map"></div>
-      <script>
-        var map = L.map('map', { 
-          zoomControl: false,
-          attributionControl: false 
-        }).setView([24.8607, 67.0011], 14);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-        }).addTo(map);
-
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-        var shops = ${JSON.stringify(shops)};
-
-        shops.forEach(function(shop) {
-          var icon = L.divIcon({
-            className: 'custom-div-icon',
-            html: '<div>🏪</div>',
-            iconSize: [36, 36],
-            iconAnchor: [18, 18]
-          });
-
-          var marker = L.marker([shop.lat, shop.lng], { icon: icon }).addTo(map);
-          marker.on('click', function(e) {
-            L.DomEvent.stopPropagation(e);
-            window.ReactNativeWebView.postMessage(JSON.stringify(shop));
-            map.setView([shop.lat, shop.lng], 16, { animate: true, duration: 0.5 });
-          });
+  const getCurrentLocation = () => {
+    console.log('[MapScreen] Requesting current location...');
+    Geolocation.getCurrentPosition(
+      (position) => {
+        console.log('[MapScreen] Location acquired successfully:', position.coords);
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
         });
-
-        map.on('click', function() {
-           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'map_click' }));
+        setIsLoading(false);
+        
+        // Center map on user
+        mapRef.current?.animateToRegion({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
         });
-      </script>
-    </body>
-    </html>
-  `;
+      },
+      (error) => {
+        console.error('[MapScreen] Error getting location (high accuracy):', error);
+        // Fallback to low accuracy
+        console.log('[MapScreen] Trying again with low accuracy...');
+        Geolocation.getCurrentPosition(
+          (posLow) => {
+            console.log('[MapScreen] Location acquired (low accuracy):', posLow.coords);
+            setUserLocation({
+              latitude: posLow.coords.latitude,
+              longitude: posLow.coords.longitude,
+            });
+            setIsLoading(false);
+            mapRef.current?.animateToRegion({
+              latitude: posLow.coords.latitude,
+              longitude: posLow.coords.longitude,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            });
+          },
+          (errorLow) => {
+            console.error('[MapScreen] Error getting location (low accuracy):', errorLow);
+            setIsLoading(false);
+          },
+          { enableHighAccuracy: false, timeout: 20000, maximumAge: 10000 }
+        );
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+  };
 
-  const onMessage = (event: any) => {
+  useEffect(() => {
+    return () => {
+      stopLocationWatch();
+    };
+  }, []);
+
+  const stopLocationWatch = () => {
+    if (watchIdRef.current !== null) {
+      Geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+      console.log('[MapScreen] Location watch stopped.');
+    }
+  };
+
+  const startTracking = () => {
+    console.log('[MapScreen] Starting Tracking...');
+    if (!userLocation) {
+      console.log('[MapScreen] Cannot start tracking: userLocation is null');
+      return;
+    }
+    if (!selectedShop) {
+      console.log('[MapScreen] Cannot start tracking: selectedShop is null');
+      return;
+    }
+    setIsTracking(true);
+    
+    console.log('[MapScreen] Fetching route from OSRM...');
+    fetchRoute(userLocation, { latitude: selectedShop.latitude, longitude: selectedShop.longitude });
+
+    // Start watching position for live tracking
+    stopLocationWatch(); // Clear previous watch if any
+    console.log('[MapScreen] Initiating watchPosition...');
+    watchIdRef.current = Geolocation.watchPosition(
+      (position) => {
+        console.log('[MapScreen] Live position update:', position.coords);
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        
+        // If moving, we might want to update route, but for now just update user location
+      },
+      (error) => console.error('[MapScreen] watchPosition error:', error),
+      { enableHighAccuracy: false, distanceFilter: 10 } // Changed to false for better emulator support
+    );
+  };
+
+  const fetchRoute = async (origin: {latitude: number, longitude: number}, dest: {latitude: number, longitude: number}) => {
+    setIsFetchingRoute(true);
     try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'map_click') {
-        handleCloseModal();
-      } else if (data.id) {
-        setSelectedShop(data);
+      const response = await fetch(`http://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson`);
+      const data = await response.json();
+      
+      if (data.code === 'Ok' && data.routes.length > 0) {
+        const route = data.routes[0];
+        const coordinates = route.geometry.coordinates.map((coord: [number, number]) => ({
+          latitude: coord[1],
+          longitude: coord[0],
+        }));
+        
+        setRouteCoordinates(coordinates);
+        // OSRM returns distance in meters and duration in seconds
+        setRouteInfo({
+          distance: route.distance / 1000, // km
+          duration: route.duration / 60, // mins
+        });
+        
+        // Fit map to route
+        mapRef.current?.fitToCoordinates(coordinates, {
+          edgePadding: { top: 150, right: 50, bottom: 350, left: 50 },
+          animated: true,
+        });
       }
-    } catch (e) {
-      console.warn('Error parsing message from webview', e);
+    } catch (error) {
+      console.error('[MapScreen] Error fetching route:', error);
+    } finally {
+      setIsFetchingRoute(false);
+    }
+  };
+
+  const stopTracking = () => {
+    setIsTracking(false);
+    setRouteInfo(null);
+    setRouteCoordinates([]);
+    stopLocationWatch();
+    
+    if (selectedShop) {
+      mapRef.current?.animateToRegion({
+        latitude: selectedShop.latitude,
+        longitude: selectedShop.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+    }
+  };
+
+  const handleShopPress = (shop: any) => {
+    setSelectedShop(shop);
+    setIsTracking(false);
+    setRouteInfo(null);
+    setRouteCoordinates([]);
+    stopLocationWatch();
+    
+    // Animate to shop without drawing route yet
+    mapRef.current?.animateToRegion({
+      latitude: shop.latitude,
+      longitude: shop.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    });
+  };
+
+  const handleCloseModal = () => {
+    setSelectedShop(null);
+    setIsTracking(false);
+    setRouteInfo(null);
+    setRouteCoordinates([]);
+    stopLocationWatch();
+    if (userLocation) {
+      mapRef.current?.animateToRegion({
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
     }
   };
 
@@ -184,38 +281,45 @@ const MapScreen = () => {
     <View className="flex-1 bg-gray-100">
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
-      <WebView
-        ref={webViewRef}
-        originWhitelist={['*']}
-        source={{ html: mapHtml }}
-        className="flex-1"
-        style={{ backgroundColor: 'transparent' }}
-        onMessage={onMessage}
-        onLoadEnd={() => setIsLoading(false)}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        scrollEnabled={false}
-        bounces={false}
-      />
+      <MapView
+        ref={mapRef}
+        provider={PROVIDER_GOOGLE}
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={{
+          latitude: 24.8607,
+          longitude: 67.0011,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        }}
+        showsUserLocation={true}
+        showsMyLocationButton={false}
+        toolbarEnabled={false}
+        showsPointsOfInterests={false}
+        onPress={() => handleCloseModal()}
+      >
+        {shops.map((shop) => (
+          <Marker
+            key={shop.id}
+            coordinate={{ latitude: shop.latitude, longitude: shop.longitude }}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleShopPress(shop);
+            }}
+          >
+            <View className="w-10 h-10 bg-[#800000] rounded-full justify-center items-center border-2 border-white shadow-lg">
+              <Text className="text-white text-lg">🏪</Text>
+            </View>
+          </Marker>
+        ))}
 
-      {isLoading && (
-        <View className="absolute inset-0 justify-center items-center bg-white z-[100]">
-          <Animated.View entering={FadeIn} className="items-center">
-            <LottieView
-              source={{ uri: 'https://lottie.host/7623910c-f370-449e-9764-793570624d6d/m8G0S5vXb5.json' }} // Generic Shop/Bazaar Loading
-              autoPlay
-              loop
-              style={{ width: 250, height: 250 }}
-            />
-            <Text className="mt-[-20px] text-[24px] text-[#800000] tracking-tight text-center" style={{ fontFamily: fonts.bebasNeue.bold }}>
-              SINDH BAZAAR KHULI RAHO AAHE...
-            </Text>
-            <Text className="text-[14px] text-[#666666] mt-1" style={{ fontFamily: fonts.poppins.regular }}>
-              Finding the best local crafts for you
-            </Text>
-          </Animated.View>
-        </View>
-      )}
+        {userLocation && selectedShop && isTracking && routeCoordinates.length > 0 && (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeWidth={5}
+            strokeColor={COLORS.primary}
+          />
+        )}
+      </MapView>
 
       {/* Floating Creative Header */}
       <Animated.View entering={SlideInUp.delay(200).duration(800)} className="absolute top-12 left-4 right-4 z-10">
@@ -238,10 +342,19 @@ const MapScreen = () => {
               <Text className="text-[18px] text-[#1A1A1A] tracking-tight" style={{ fontFamily: fonts.bebasNeue.bold }}>Sindh Bazaar Map</Text>
               <Text className="text-[10px] text-[#800000] uppercase tracking-widest" style={{ fontFamily: fonts.poppins.bold }}>Explore Local Shops</Text>
             </View>
-            <TouchableOpacity className="bg-[#800000]/10 px-3 py-1.5 rounded-full flex-row items-center gap-1">
-              <View className="w-1.5 h-1.5 rounded-full bg-[#800000] animate-pulse" />
-              <Text className="text-[10px] text-[#800000]" style={{ fontFamily: fonts.poppins.bold }}>LIVE</Text>
-            </TouchableOpacity>
+            {userLocation && (
+              <TouchableOpacity 
+                className={`p-2 rounded-full ${isTracking ? 'bg-green-100' : 'bg-[#800000]/10'}`}
+                onPress={() => mapRef.current?.animateToRegion({
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                })}
+              >
+                <Icon name="locate" size={20} color={isTracking ? '#16A34A' : COLORS.primary} />
+              </TouchableOpacity>
+            )}
           </LinearGradient>
         </PaperCard>
       </Animated.View>
@@ -256,7 +369,7 @@ const MapScreen = () => {
           <View className="bg-white rounded-t-[40px] p-6 pb-12 shadow-2xl elevation-20 border-t border-gray-100">
             <View className="w-12 h-1 bg-gray-200 rounded-full self-center mb-6" />
 
-            <View className="flex-row items-center mb-8">
+            <View className="flex-row items-center mb-4">
               <View className="w-16 h-16 rounded-3xl bg-[#800000]/5 justify-center items-center border border-[#800000]/10">
                 <Text className="text-[#800000] text-[28px]" style={{ fontFamily: fonts.bebasNeue.bold }}>
                   {selectedShop.name.charAt(0)}
@@ -280,27 +393,55 @@ const MapScreen = () => {
               />
             </View>
 
-            <View className="flex-row gap-3">
-              <PaperButton 
-                mode="contained" 
-                onPress={() => { handleCloseModal(); }}
-                buttonColor={COLORS.primary}
-                className="flex-1 rounded-2xl py-1"
-                labelStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
-              >
-                Visit Shop
-              </PaperButton>
+            {/* Uber-like Route Info Box */}
+            {isTracking && routeInfo && (
+              <View className="bg-gray-50 rounded-2xl p-4 mb-6 flex-row items-center justify-between border border-gray-100">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-10 h-10 bg-blue-100 rounded-full justify-center items-center">
+                    <Icon name="car" size={20} color="#2563EB" />
+                  </View>
+                  <View>
+                    <Text className="text-[12px] text-gray-500" style={{ fontFamily: fonts.poppins.regular }}>Estimated Time</Text>
+                    <Text className="text-[16px] text-[#1A1A1A]" style={{ fontFamily: fonts.poppins.bold }}>
+                      {Math.ceil(routeInfo.duration)} mins
+                    </Text>
+                  </View>
+                </View>
+                <View className="items-end">
+                  <Text className="text-[12px] text-gray-500" style={{ fontFamily: fonts.poppins.regular }}>Distance</Text>
+                  <Text className="text-[16px] text-[#1A1A1A]" style={{ fontFamily: fonts.poppins.bold }}>
+                    {routeInfo.distance.toFixed(1)} km
+                  </Text>
+                </View>
+              </View>
+            )}
 
-              <PaperButton 
-                mode="outlined" 
-                onPress={handleCloseModal}
-                textColor="#1A1A1A"
-                style={{ borderColor: '#E5E7EB' }}
-                className="flex-1 rounded-2xl py-1"
-                labelStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
-              >
-                Dismiss
-              </PaperButton>
+            <View className="flex-row gap-3">
+              {!isTracking ? (
+                <PaperButton 
+                  mode="contained" 
+                  onPress={startTracking}
+                  buttonColor={COLORS.primary}
+                  className="flex-1 rounded-2xl py-1"
+                  labelStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
+                  icon={!userLocation ? "map-marker-radius" : "navigation"}
+                  loading={!userLocation || isFetchingRoute}
+                  disabled={!userLocation || isFetchingRoute}
+                >
+                  {!userLocation ? "Locating..." : isFetchingRoute ? "Drawing Route..." : "Track Route"}
+                </PaperButton>
+              ) : (
+                <PaperButton 
+                  mode="contained" 
+                  onPress={stopTracking}
+                  buttonColor="#1A1A1A"
+                  className="flex-1 rounded-2xl py-1"
+                  labelStyle={{ fontFamily: fonts.poppins.bold, fontSize: 14 }}
+                  icon="close-circle"
+                >
+                  Cancel Tracking
+                </PaperButton>
+              )}
             </View>
           </View>
         </Animated.View>
@@ -308,9 +449,5 @@ const MapScreen = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  // NativeWind handles the styles
-});
 
 export default MapScreen;

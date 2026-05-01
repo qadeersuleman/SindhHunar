@@ -95,6 +95,8 @@ export const verifyOtp = async (email: string, token: string, type: 'magiclink' 
 export const signInWithGoogle = async (): Promise<AuthResponse> => {
   try {
     await GoogleSignin.hasPlayServices();
+    // Sign out first to always force the account chooser screen
+    await GoogleSignin.signOut();
     const userInfo = await GoogleSignin.signIn();
     
     if (userInfo.data?.idToken) {
@@ -122,6 +124,20 @@ export const signInWithGoogle = async (): Promise<AuthResponse> => {
 
 export const signOut = async (): Promise<{ error: Error | null }> => {
   try {
+    // Try to sign out from Google — wrapped in its own try/catch
+    // so any GoogleSignin error NEVER blocks the Supabase signout below
+    try {
+      const isSignedIn = await GoogleSignin.isSignedIn();
+      if (isSignedIn) {
+        await GoogleSignin.revokeAccess();
+        await GoogleSignin.signOut();
+      }
+    } catch (googleError) {
+      // Non-critical — log and continue
+      console.warn('[LOGOUT] Google sign-out step failed (non-critical):', googleError);
+    }
+
+    // Always sign out from Supabase regardless of Google result
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     return { error: null };

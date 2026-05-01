@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../../components/layout/Header';
 import { fonts } from '../../utils/fonts';
-import { Card as PaperCard, Button as PaperButton, Badge as PaperBadge, List } from 'react-native-paper';
+import { Card as PaperCard, Button as PaperButton, List, Portal, Modal } from 'react-native-paper';
 import { useAuth } from '../../hooks/useAuth';
 import { useProfile } from '../../hooks/useProfile';
 import { useNavigation } from '@react-navigation/native';
@@ -13,9 +13,20 @@ import type { SellerStackParamList } from '../../navigation/SellerNavigator';
 import { supabase } from '../../services/supabase/client';
 
 export const SellerDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const { data: profile, isLoading: isProfileLoading } = useProfile(user?.id);
   const navigation = useNavigation<NativeStackNavigationProp<SellerStackParamList>>();
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+
+  const confirmLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      // handled inside authStore
+    } finally {
+      setLogoutModalVisible(false);
+    }
+  };
 
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -53,10 +64,14 @@ export const SellerDashboard: React.FC = () => {
         // 3. Fetch orders and revenue using correct artisanId and column name
         const { data: orders } = await supabase
           .from('orders')
-          .select('id, total_amount')
+          .select('id, total_amount, items')
           .eq('artisan_id', artisanId);
 
-        const revenue = orders?.reduce((acc, order) => acc + (order.total_amount || 0), 0) || 0;
+        // Calculate revenue by summing items price (excluding the 150 Rs delivery fee)
+        const revenue = orders?.reduce((acc, order) => {
+          const itemsSubtotal = (order.items as any[])?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0;
+          return acc + itemsSubtotal;
+        }, 0) || 0;
 
         setStats({
           totalProducts: productsCount || 0,
@@ -168,7 +183,7 @@ export const SellerDashboard: React.FC = () => {
           
           <PaperButton
             mode="contained-tonal"
-            onPress={() => console.log('View Orders')}
+            onPress={() => navigation.navigate('ViewOrders')}
             className="mb-3 rounded-2xl py-1"
             labelStyle={{ fontFamily: fonts.poppins.bold, fontSize: 16 }}
             icon="receipt"
@@ -203,7 +218,7 @@ export const SellerDashboard: React.FC = () => {
           
           <List.Item
             title="Logout"
-            onPress={logout}
+            onPress={() => setLogoutModalVisible(true)}
             className="bg-white rounded-2xl mb-2 elevation-1 shadow-sm"
             titleStyle={{ fontFamily: fonts.poppins.bold, fontSize: 16, color: '#800000' }}
             left={props => <List.Icon {...props} icon="logout" color="#800000" />}
@@ -211,8 +226,115 @@ export const SellerDashboard: React.FC = () => {
           />
         </View>
       </ScrollView>
+
+      {/* ── Logout Confirmation Modal ── */}
+      <Portal>
+        <Modal
+          visible={logoutModalVisible}
+          onDismiss={() => setLogoutModalVisible(false)}
+          contentContainerStyle={styles.logoutModal}
+        >
+          <View style={styles.logoutIconCircle}>
+            <Icon name="log-out-outline" size={32} color="#FF3B30" />
+          </View>
+
+          <Text style={styles.logoutTitle}>Logging Out?</Text>
+          <Text style={styles.logoutSubtitle}>
+            Are you sure you want to leave the Seller Dashboard?
+          </Text>
+
+          <TouchableOpacity
+            style={styles.logoutConfirmBtn}
+            onPress={confirmLogout}
+            disabled={authLoading}
+          >
+            {authLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Icon name="log-out-outline" size={18} color="#fff" />
+                <Text style={styles.logoutConfirmText}>Yes, Logout</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.logoutCancelBtn}
+            onPress={() => setLogoutModalVisible(false)}
+          >
+            <Text style={styles.logoutCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </Modal>
+      </Portal>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  logoutModal: {
+    backgroundColor: '#FFFFFF',
+    margin: 28,
+    padding: 28,
+    borderRadius: 28,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+  },
+  logoutIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFF1F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  logoutTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  logoutSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 28,
+    paddingHorizontal: 8,
+  },
+  logoutConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 14,
+    paddingVertical: 14,
+    width: '100%',
+    marginBottom: 10,
+  },
+  logoutConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  logoutCancelBtn: {
+    paddingVertical: 12,
+    width: '100%',
+    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+  },
+  logoutCancelText: {
+    color: '#374151',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+});
 
 export default SellerDashboard;

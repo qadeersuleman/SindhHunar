@@ -41,3 +41,15 @@ export const useUpdateOrder = () => {
     },
   });
 };
+
+/**
+ * Hook to fetch orders received by an artisan
+ */
+export const useArtisanOrders = (artisanId: string) => {
+  return useQuery({
+    queryKey: ['artisan-orders', artisanId],
+    queryFn: () => getMyOrders(artisanId, true), // Passing true to indicate artisan mode
+    enabled: !!artisanId,
+    select: (data) => data.orders,
+  });
+};
