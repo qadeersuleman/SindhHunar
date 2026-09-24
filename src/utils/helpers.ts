@@ -152,18 +152,6 @@ export const getRandomColor = (): string => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
-import Clipboard from '@react-native-clipboard/clipboard';
-
-export const copyToClipboard = async (text: string): Promise<boolean> => {
-  try {
-    await Clipboard.setString(text);
-    return true;
-  } catch (error) {
-    console.error('Failed to copy to clipboard:', error);
-    return false;
-  }
-};
-
 import { Linking, Alert } from 'react-native';
 
 export const downloadFile = async (url: string, filename: string): Promise<void> => {
