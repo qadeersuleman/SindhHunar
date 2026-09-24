@@ -11,28 +11,32 @@ const axiosClient = axios.create({
 
 // Request interceptor
 axiosClient.interceptors.request.use(
-  (config) => {
+  (config: any) => {
     // Add auth token if available
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (typeof localStorage !== 'undefined') {
+      const token = localStorage.getItem('authToken');
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
-  (error) => {
+  (error: any) => {
     return Promise.reject(error);
   }
 );
 
 // Response interceptor
 axiosClient.interceptors.response.use(
-  (response) => {
+  (response: any) => {
     return response.data;
   },
-  (error) => {
+  (error: any) => {
     if (error.response?.status === 401) {
       // Handle unauthorized access
-      localStorage.removeItem('authToken');
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('authToken');
+      }
       // Redirect to login or emit event
     }
     return Promise.reject(error);

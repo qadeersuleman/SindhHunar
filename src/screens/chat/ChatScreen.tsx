@@ -29,11 +29,8 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '../../utils/fonts';
 import PremiumHeader from '../../components/PremiumHeader';
 import { generateAIResponse, ChatMessage as AIChatMessage } from '../../services/api/aiService';
-import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import Tts from 'react-native-tts';
 import { PermissionsAndroid, Alert } from 'react-native';
-
-const audioRecorderPlayer = AudioRecorderPlayer;
 
 const { width } = Dimensions.get('window');
 
@@ -107,6 +104,8 @@ const ChatScreen: React.FC<any> = ({ navigation }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState('00:00');
   const flatListRef = useRef<any>(null);
+  const recordTimerRef = useRef<any>(null);
+  const recordSecondsRef = useRef<number>(0);
 
   useEffect(() => {
     // TTS Setup
@@ -116,8 +115,9 @@ const ChatScreen: React.FC<any> = ({ navigation }) => {
 
     return () => {
       Tts.stop();
-      audioRecorderPlayer.stopRecorder();
-      audioRecorderPlayer.removeRecordBackListener();
+      if (recordTimerRef.current) {
+        clearInterval(recordTimerRef.current);
+      }
     };
   }, []);
 
@@ -217,16 +217,21 @@ const ChatScreen: React.FC<any> = ({ navigation }) => {
     if (!hasPermission) return;
 
     setIsRecording(true);
-    const result = await audioRecorderPlayer.startRecorder();
-    audioRecorderPlayer.addRecordBackListener((e) => {
-      setRecordTime(audioRecorderPlayer.mmssss(Math.floor(e.currentPosition)));
-      return;
-    });
+    recordSecondsRef.current = 0;
+    setRecordTime('00:00');
+    recordTimerRef.current = setInterval(() => {
+      recordSecondsRef.current += 1;
+      const mins = Math.floor(recordSecondsRef.current / 60).toString().padStart(2, '0');
+      const secs = (recordSecondsRef.current % 60).toString().padStart(2, '0');
+      setRecordTime(`${mins}:${secs}`);
+    }, 1000);
   };
 
   const onStopRecord = async () => {
-    const result = await audioRecorderPlayer.stopRecorder();
-    audioRecorderPlayer.removeRecordBackListener();
+    if (recordTimerRef.current) {
+      clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
     setIsRecording(false);
     setRecordTime('00:00');
     
@@ -241,7 +246,7 @@ const ChatScreen: React.FC<any> = ({ navigation }) => {
       sender: 'user',
       timestamp: new Date(),
       isAudio: true,
-      audioPath: result
+      audioPath: ''
     };
     setMessages(prev => [...prev, audioMsg]);
     

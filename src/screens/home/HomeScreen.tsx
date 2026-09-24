@@ -76,29 +76,127 @@ const OFFERS = [
     id: '1',
     titleKey: 'products.peda_title',
     subtitleKey: 'products.peda_sub',
-    image: images.peda,
+    image: images.peraJpg || images.peda,
     color: ['#800000', '#4A0000'],
   },
   {
     id: '2',
     titleKey: 'products.ralli_title',
     subtitleKey: 'products.ralli_sub',
-    image: images.rili,
+    image: images.sindhiQuilt || images.rili,
     color: ['#002366', '#001233'],
   },
   {
     id: '3',
     titleKey: 'products.item3_name',
     subtitleKey: 'home.topi',
-    image: images.topi,
+    image: images.sindhiTopi || images.topi,
     color: ['#C5A059', '#8B6B23'],
   },
   {
     id: '4',
     titleKey: 'products.item4_name',
     subtitleKey: 'home.ajrak',
-    image: images.ajrakBg,
+    image: images.ajrak,
     color: ['#800000', '#2D2D2D'],
+  },
+  {
+    id: '5',
+    titleKey: 'Sindhi Traditional Dress',
+    subtitleKey: 'Handcrafted Heritage',
+    image: images.sindhiFemaleDress || images.dress,
+    color: ['#4A0000', '#800000'],
+  },
+  {
+    id: '6',
+    titleKey: 'Handmade Sindhi Bags & Crafts',
+    subtitleKey: 'Unique Local Artisans',
+    image: images.bags,
+    color: ['#002366', '#C5A059'],
+  }
+];
+
+const FALLBACK_PRODUCTS = [
+  {
+    id: 'fb-1',
+    name: 'Original Ghotki Peda',
+    category: 'Sweets',
+    price: 850,
+    rating: 4.9,
+    image: images.peraJpg || images.peda,
+    artisans: { shop_name: 'Ghotki Peda Center' },
+  },
+  {
+    id: 'fb-2',
+    name: 'Sindhi Handicraft Dress',
+    category: 'Apparel',
+    price: 3500,
+    rating: 4.8,
+    image: images.sindhiFemaleDress,
+    artisans: { shop_name: 'Ghotki Crafts Hub' },
+  },
+  {
+    id: 'fb-3',
+    name: 'Traditional Ajrak Shawl',
+    category: 'Ajrak',
+    price: 2400,
+    rating: 4.9,
+    image: images.ajrak,
+    artisans: { shop_name: 'Sindh Heritage' },
+  },
+  {
+    id: 'fb-4',
+    name: 'Handcrafted Rilli Quilt',
+    category: 'Rilli',
+    price: 4500,
+    rating: 5.0,
+    image: images.sindhiQuilt,
+    artisans: { shop_name: 'Ghotki Ralli Artisans' },
+  },
+  {
+    id: 'fb-5',
+    name: 'Sindhi Embroidered Topi',
+    category: 'Topi',
+    price: 1200,
+    rating: 4.7,
+    image: images.sindhiTopi,
+    artisans: { shop_name: 'Bhit Shah Cap House' },
+  },
+  {
+    id: 'fb-6',
+    name: 'Handmade Sindhi Tote Bag',
+    category: 'Bags',
+    price: 1800,
+    rating: 4.8,
+    image: images.bags,
+    artisans: { shop_name: 'Hunar Handicrafts' },
+  },
+  {
+    id: 'fb-7',
+    name: 'Traditional Sindhi Dress',
+    category: 'Apparel',
+    price: 4200,
+    rating: 4.9,
+    image: images.dress,
+    artisans: { shop_name: 'Ghotki Tailors' },
+  },
+  {
+    id: 'fb-8',
+    name: 'Cultural Sindhi Book & History',
+    category: 'Books',
+    price: 950,
+    rating: 4.6,
+    image: images.book,
+    artisans: { shop_name: 'Sindh Literature' },
+  },
+  {
+    id: 'fb-9',
+    name: 'Embroidered Sindhi Keychain',
+    category: 'Accessories',
+    price: 350,
+    rating: 4.8,
+    image: images.keychain,
+    artisans: { shop_name: 'Local Artisans Ghotki' },
   },
 ];
 
@@ -309,13 +407,18 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
     </View>
   ), [isRTL, selectedCategory, t, renderOffer]);
 
+  const displayProducts = useMemo(() => {
+    if (products && products.length > 0) return products;
+    return FALLBACK_PRODUCTS;
+  }, [products]);
+
   const renderProduct = useCallback(({ item }: { item: any }) => {
     // Map Supabase fields to ProductCard format
     const mappedItem = {
       ...item,
-      nameKey: item.name, // The DB has the actual name
-      image: item.images && item.images.length > 0 ? { uri: item.images[0] } : images.ajrakBg,
-      artisanKey: item.artisans?.shop_name || 'Artisan',
+      nameKey: item.name || item.nameKey,
+      image: item.image ? item.image : (item.images && item.images.length > 0 ? { uri: item.images[0] } : images.ajrakBg),
+      artisanKey: item.artisans?.shop_name || item.artisanKey || 'Ghotki Artisan',
     };
 
     return (
@@ -355,7 +458,7 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
         </View>
       ) : (
         <Animated.FlatList
-          data={products}
+          data={displayProducts}
           renderItem={renderProduct}
           keyExtractor={keyExtractor}
           numColumns={2}

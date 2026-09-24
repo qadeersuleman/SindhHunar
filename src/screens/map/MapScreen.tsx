@@ -37,9 +37,10 @@ const COLORS = {
 };
 
 const shops = [
-  { id: 1, name: "Ali Grocery Store", latitude: 24.8607, longitude: 67.0011, address: "Burns Road, Karachi" },
-  { id: 2, name: "Karachi Electronics", latitude: 24.8620, longitude: 67.0030, address: "Saddar, Karachi" },
-  { id: 3, name: "Bismillah Mart", latitude: 24.8585, longitude: 67.0000, address: "I.I Chundrigar Rd, Karachi" },
+  { id: 1, name: "Ghotki Hunar Handicrafts", latitude: 28.0050, longitude: 69.3140, address: "Station Road, Ghotki" },
+  { id: 2, name: "Traditional Ajrak & Rilli Center", latitude: 28.0082, longitude: 69.3185, address: "Shahi Bazaar, Ghotki" },
+  { id: 3, name: "Original Ghotki Peda Store", latitude: 28.0025, longitude: 69.3100, address: "Deviri Road, Ghotki" },
+  { id: 4, name: "Sindhi Embroidery Artisans Hub", latitude: 28.0120, longitude: 69.3220, address: "Bypass Road, Ghotki" },
 ];
 
 const MapScreen = () => {
@@ -286,10 +287,10 @@ const MapScreen = () => {
         provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFillObject}
         initialRegion={{
-          latitude: 24.8607,
-          longitude: 67.0011,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
+          latitude: 28.0050,
+          longitude: 69.3140,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
         }}
         showsUserLocation={true}
         showsMyLocationButton={false}

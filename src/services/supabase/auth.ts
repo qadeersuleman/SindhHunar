@@ -1,7 +1,7 @@
 import { supabase } from './client';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import { GOOGLE_CLIENT_ID } from '../../config/env';
+import { GOOGLE_CLIENT_ID, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../config/env';
 import type { Tables } from './client';
 
 GoogleSignin.configure({
@@ -127,7 +127,7 @@ export const signOut = async (): Promise<{ error: Error | null }> => {
     // Try to sign out from Google — wrapped in its own try/catch
     // so any GoogleSignin error NEVER blocks the Supabase signout below
     try {
-      const isSignedIn = await GoogleSignin.isSignedIn();
+      const isSignedIn = GoogleSignin.hasPreviousSignIn();
       if (isSignedIn) {
         await GoogleSignin.revokeAccess();
         await GoogleSignin.signOut();
@@ -148,11 +148,16 @@ export const signOut = async (): Promise<{ error: Error | null }> => {
 
 export const getCurrentUser = async (): Promise<AuthResponse> => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) throw error;
-    return { user: user as User, error: null };
+    if (!SUPABASE_URL || SUPABASE_URL.includes('your-project') || SUPABASE_ANON_KEY === 'your-anon-key') {
+      return { user: null, error: null };
+    }
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      return { user: null, error };
+    }
+    return { user: (data?.user as User) || null, error: null };
   } catch (error) {
-    return { user: null, error: error as Error };
+    return { user: null, error: null };
   }
 };
 

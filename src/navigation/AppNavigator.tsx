@@ -44,10 +44,8 @@ const AppNavigator: React.FC = () => {
     isAuthenticated ? user?.id : undefined
   );
 
-  // ─── First-launch guard ────────────────────────────────────────────────────
-  // isChecking  → AsyncStorage read is in-flight (show nothing / wait)
-  // isFirstLaunch → key was never set = first install = show splash
-  const { isFirstLaunch, isChecking, markSplashSeen } = useFirstLaunch();
+  // Always show the custom branded splash screen on app launch
+  const [showSplash, setShowSplash] = React.useState(true);
 
   console.log('[AppNavigator] State:', {
     hasUser: !!user,
@@ -55,22 +53,15 @@ const AppNavigator: React.FC = () => {
     isInitialized,
     role: profile?.role,
     isProfileLoading,
-    isFirstLaunch,
-    isChecking,
+    showSplash,
   });
 
-  // 1️⃣  Still reading AsyncStorage — render nothing briefly to avoid flicker
-  if (isChecking) {
-    return null;
+  // 1️⃣  Show the custom branded splash screen on startup
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
-  // 2️⃣  FIRST INSTALL ONLY — show the custom branded splash.
-  //     onFinish writes the flag to AsyncStorage so this never runs again.
-  if (isFirstLaunch) {
-    return <SplashScreen onFinish={markSplashSeen} />;
-  }
-
-  // 3️⃣  Subsequent launches — auth is still initialising → minimal spinner
+  // 2️⃣  Auth / Profile initialising → minimal spinner
   if (!isInitialized || (isAuthenticated && isProfileLoading)) {
     return <AppLoadingScreen />;
   }

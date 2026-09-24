@@ -39,6 +39,14 @@ export interface ImageAssets {
   rili: any;
   topi: any;
   peda: any;
+  dress: any;
+  sindhiFemaleDress: any;
+  bags: any;
+  book: any;
+  keychain: any;
+  peraJpg: any;
+  sindhiTopi: any;
+  sindhiQuilt: any;
 }
 
 export const images: ImageAssets = {
@@ -80,6 +88,14 @@ export const images: ImageAssets = {
   rili: require('../assets/images/Rili.jpg'),
   topi: require('../assets/images/Topi.jpg'),
   peda: require('../assets/images/peraa.jpg'),
+  dress: require('../assets/images/Dress.jpg'),
+  sindhiFemaleDress: require('../assets/images/Sindhi_female_dress.jpg'),
+  bags: require('../assets/images/bags.jpg'),
+  book: require('../assets/images/book.jpg'),
+  keychain: require('../assets/images/key chain.jpg'),
+  peraJpg: require('../assets/images/pera.jpg'),
+  sindhiTopi: require('../assets/images/sindhi topi.jpg'),
+  sindhiQuilt: require('../assets/images/sindhi_Quilt.jpg'),
 };
 
 // Helper function to get image source with fallback

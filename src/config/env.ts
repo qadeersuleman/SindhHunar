@@ -18,8 +18,8 @@ export const API_BASE_URL = EXPO_PUBLIC_API_URL || 'https://api.sindhhunar.com';
 export const API_TIMEOUT = 10000;
 
 // Supabase Configuration
-export const SUPABASE_URL = EXPO_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
-export const SUPABASE_ANON_KEY = EXPO_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
+export const SUPABASE_URL = EXPO_PUBLIC_SUPABASE_URL || 'https://hypsawmgxqxsgaqfgzfk.supabase.co';
+export const SUPABASE_ANON_KEY = EXPO_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_zcTvi5bpcT51ec9j6LnA6w_5iA5RGIJ';
 
 // Google Auth Configuration
 export const GOOGLE_CLIENT_ID = GOOGLE_WEB_CLIENT_ID || '930569299554-6oiqdgp3mnhsv5m0ju4bporcbvg1b2lr.apps.googleusercontent.com';
