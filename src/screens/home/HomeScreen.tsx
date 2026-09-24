@@ -63,55 +63,48 @@ const COLORS = {
 };
 
 const CATEGORIES = [
-  { id: '1', name: 'Peda', icon: 'fast-food-outline' },
-  { id: '2', name: 'Ralli', icon: 'grid-outline' },
-  { id: '3', name: 'Ajrak', icon: 'shirt-outline' },
-  { id: '4', name: 'Topi', icon: 'ribbon-outline' },
-  { id: '5', name: 'Pottery', icon: 'wine-outline' },
-  { id: '6', name: 'Dates', icon: 'leaf-outline' },
+  { id: 'all', name: 'all', filterKey: null, icon: 'apps-outline' },
+  { id: 'ajrak', name: 'ajrak', filterKey: 'Ajrak', icon: 'shirt-outline' },
+  { id: 'topi', name: 'topi', filterKey: 'Topi', icon: 'ribbon-outline' },
+  { id: 'ralli', name: 'ralli', filterKey: 'Rilli', icon: 'grid-outline' },
+  { id: 'mirror', name: 'mirrorWork', filterKey: 'Mirror Work', icon: 'sparkles-outline' },
+  { id: 'crafts', name: 'traditionalCrafts', filterKey: 'Block Printing', icon: 'basket-outline' },
 ];
 
 const OFFERS = [
   {
     id: '1',
-    titleKey: 'products.peda_title',
-    subtitleKey: 'products.peda_sub',
-    image: images.peraJpg || images.peda,
+    title: 'Authentic Sindhi Ajrak',
+    subtitle: 'Pure Hand-Blocked Heritage',
+    image: 'https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/ajrak.jpg',
     color: ['#800000', '#4A0000'],
   },
   {
     id: '2',
-    titleKey: 'products.ralli_title',
-    subtitleKey: 'products.ralli_sub',
-    image: images.sindhiQuilt || images.rili,
-    color: ['#002366', '#001233'],
-  },
-  {
-    id: '3',
-    titleKey: 'products.item3_name',
-    subtitleKey: 'home.topi',
-    image: images.sindhiTopi || images.topi,
+    title: 'Royal Embroidered Topi',
+    subtitle: 'Intricate Mirror & Thread Craft',
+    image: 'https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/sindhi_topi.jpg',
     color: ['#C5A059', '#8B6B23'],
   },
   {
-    id: '4',
-    titleKey: 'products.item4_name',
-    subtitleKey: 'home.ajrak',
-    image: images.ajrak,
-    color: ['#800000', '#2D2D2D'],
+    id: '3',
+    title: 'Handcrafted Ralli Quilt',
+    subtitle: 'Traditional Geometric Patchwork',
+    image: 'https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/sindhi_quilt.jpg',
+    color: ['#002366', '#001233'],
   },
   {
-    id: '5',
-    titleKey: 'Sindhi Traditional Dress',
-    subtitleKey: 'Handcrafted Heritage',
-    image: images.sindhiFemaleDress || images.dress,
+    id: '4',
+    title: 'Sindhi Cultural Kurta',
+    subtitle: 'Hand-Embroidered Artisanal Dress',
+    image: 'https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/female_dress.jpg',
     color: ['#4A0000', '#800000'],
   },
   {
-    id: '6',
-    titleKey: 'Handmade Sindhi Bags & Crafts',
-    subtitleKey: 'Unique Local Artisans',
-    image: images.bags,
+    id: '5',
+    title: 'Handmade Sindhi Bag',
+    subtitle: 'Block Printed Cultural Style',
+    image: 'https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/embroidered_bag.jpg',
     color: ['#002366', '#C5A059'],
   }
 ];
@@ -119,84 +112,75 @@ const OFFERS = [
 const FALLBACK_PRODUCTS = [
   {
     id: 'fb-1',
-    name: 'Original Ghotki Peda',
-    category: 'Sweets',
-    price: 850,
-    rating: 4.9,
-    image: images.peraJpg || images.peda,
-    artisans: { shop_name: 'Ghotki Peda Center' },
+    name: 'Authentic Sindhi Ajrak',
+    category: 'Ajrak Printing',
+    price: 3500,
+    rating: 5.0,
+    images: ['https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/ajrak.jpg'],
+    artisans: { shop_name: 'Ustad Ismail Ajrak' },
   },
   {
     id: 'fb-2',
-    name: 'Sindhi Handicraft Dress',
-    category: 'Apparel',
-    price: 3500,
-    rating: 4.8,
-    image: images.sindhiFemaleDress,
-    artisans: { shop_name: 'Ghotki Crafts Hub' },
+    name: 'Royal Embroidered Sindhi Topi',
+    category: 'Sindhi Topi',
+    price: 2200,
+    rating: 4.9,
+    images: ['https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/sindhi_topi.jpg'],
+    artisans: { shop_name: 'Bhit Shah Cap House' },
   },
   {
     id: 'fb-3',
-    name: 'Traditional Ajrak Shawl',
-    category: 'Ajrak',
-    price: 2400,
-    rating: 4.9,
-    image: images.ajrak,
-    artisans: { shop_name: 'Sindh Heritage' },
+    name: 'Handcrafted Sindhi Ralli Quilt',
+    category: 'Rilli Work',
+    price: 8500,
+    rating: 5.0,
+    images: ['https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/sindhi_quilt.jpg'],
+    artisans: { shop_name: 'Sindhi Ralli Artisans' },
   },
   {
     id: 'fb-4',
-    name: 'Handcrafted Rilli Quilt',
-    category: 'Rilli',
-    price: 4500,
-    rating: 5.0,
-    image: images.sindhiQuilt,
-    artisans: { shop_name: 'Ghotki Ralli Artisans' },
+    name: 'Hand-Embroidered Sindhi Kurta',
+    category: 'Mirror Work',
+    price: 6500,
+    rating: 4.8,
+    images: ['https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/traditional_dress.jpg'],
+    artisans: { shop_name: 'Ghotki Crafts Hub' },
   },
   {
     id: 'fb-5',
-    name: 'Sindhi Embroidered Topi',
-    category: 'Topi',
-    price: 1200,
-    rating: 4.7,
-    image: images.sindhiTopi,
-    artisans: { shop_name: 'Bhit Shah Cap House' },
+    name: 'Sindhi Cultural Female Dress',
+    category: 'Mirror Work',
+    price: 7800,
+    rating: 4.9,
+    images: ['https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/female_dress.jpg'],
+    artisans: { shop_name: 'Hunar Embroidery Center' },
   },
   {
     id: 'fb-6',
     name: 'Handmade Sindhi Tote Bag',
-    category: 'Bags',
+    category: 'Block Printing',
     price: 1800,
     rating: 4.8,
-    image: images.bags,
+    images: ['https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/embroidered_bag.jpg'],
     artisans: { shop_name: 'Hunar Handicrafts' },
   },
   {
     id: 'fb-7',
-    name: 'Traditional Sindhi Dress',
-    category: 'Apparel',
-    price: 4200,
-    rating: 4.9,
-    image: images.dress,
-    artisans: { shop_name: 'Ghotki Tailors' },
+    name: 'Sindhi Heritage & Crafts Book',
+    category: 'Block Printing',
+    price: 1200,
+    rating: 4.7,
+    images: ['https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/sindhi_art_book.jpg'],
+    artisans: { shop_name: 'Sindh Literature Society' },
   },
   {
     id: 'fb-8',
-    name: 'Cultural Sindhi Book & History',
-    category: 'Books',
-    price: 950,
-    rating: 4.6,
-    image: images.book,
-    artisans: { shop_name: 'Sindh Literature' },
-  },
-  {
-    id: 'fb-9',
-    name: 'Embroidered Sindhi Keychain',
-    category: 'Accessories',
-    price: 350,
-    rating: 4.8,
-    image: images.keychain,
-    artisans: { shop_name: 'Local Artisans Ghotki' },
+    name: 'Handmade Sindhi Keychain',
+    category: 'Mirror Work',
+    price: 450,
+    rating: 4.9,
+    images: ['https://hypsawmgxqxsgaqfgzfk.supabase.co/storage/v1/object/public/products/catalog/handmade_keychain.jpg'],
+    artisans: { shop_name: 'Local Hunar Artisans' },
   },
 ];
 
@@ -216,7 +200,7 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
   }, []);
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'sd';
-  const [selectedCategory, setSelectedCategory] = useState('1');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState('');
   const { showToast } = useToast();
@@ -325,14 +309,23 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
       className="w-full rounded-[20px] overflow-hidden shadow-xl elevation-8" 
       style={{ height: RESPONSIVE.GET_HEIGHT(22) }}
       activeOpacity={0.9}
+      onPress={() => {
+        const matchingProduct = (products || FALLBACK_PRODUCTS).find(
+          (p: any) => p.name?.toLowerCase().includes(item.title.toLowerCase()) || 
+                      item.title.toLowerCase().includes(p.name?.toLowerCase())
+        );
+        if (matchingProduct) {
+          handleProductPress(matchingProduct);
+        }
+      }}
     >
       <Image
-        source={typeof item.image === 'string' ? { uri: item.image } : item.image}
+        source={{ uri: item.image }}
         className="absolute inset-0 w-full h-full"
         resizeMode="cover"
       />
       <LinearGradient
-        colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.7)']}
+        colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.75)']}
         className="absolute inset-0"
       />
       <View className="flex-1 px-6 py-4 justify-center">
@@ -340,19 +333,19 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
           <Text className="bg-[#800000] px-3 py-1 rounded-lg text-white text-[10px] uppercase mb-1" style={{ fontFamily: fonts.poppins.bold }}>
             {t('common.trending')}
           </Text>
-          <Text className={`text-white text-[28px] leading-[30px] shadow-sm ${isRTL ? 'text-right' : 'text-left'}`} style={{ fontFamily: fonts.bebasNeue.bold }}>
-            {t(item.titleKey)}
+          <Text className={`text-white text-[26px] leading-[30px] shadow-sm ${isRTL ? 'text-right' : 'text-left'}`} style={{ fontFamily: fonts.bebasNeue.bold }}>
+            {item.title}
           </Text>
           <Text className={`text-white/90 text-[13px] mt-1 mb-2 ${isRTL ? 'text-right' : 'text-left'}`} style={{ fontFamily: fonts.poppins.medium }}>
-            {t(item.subtitleKey)}
+            {item.subtitle}
           </Text>
-          <TouchableOpacity className="bg-white px-5 py-2 rounded-xl shadow-sm">
+          <View className="bg-white px-5 py-2 rounded-xl shadow-sm">
             <Text className="text-[#800000] text-[12px]" style={{ fontFamily: fonts.poppins.bold }}>{t('common.shopNow')}</Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
-  ), [isRTL, t]);
+  ), [isRTL, t, products, handleProductPress]);
 
   const listHeaderComponent = useMemo(() => (
     <View>
@@ -400,7 +393,7 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
         <Text className="text-[22px] text-[#1A1A1A] tracking-tight" style={{ fontFamily: fonts.bebasNeue.bold }}>
           {t('nav.bazaar')}
         </Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => setSelectedCategory('all')}>
           <Text className="text-[13px] text-[#800000]" style={{ fontFamily: fonts.poppins.medium }}>{t('common.viewAll')}</Text>
         </TouchableOpacity>
       </View>
@@ -408,17 +401,38 @@ const HomeScreen: React.FC<any> = ({ navigation }) => {
   ), [isRTL, selectedCategory, t, renderOffer]);
 
   const displayProducts = useMemo(() => {
-    if (products && products.length > 0) return products;
-    return FALLBACK_PRODUCTS;
-  }, [products]);
+    const list = (products && products.length > 0) ? products : FALLBACK_PRODUCTS;
+    let filtered = list;
+
+    if (selectedCategory !== 'all') {
+      const cat = CATEGORIES.find(c => c.id === selectedCategory);
+      if (cat && cat.filterKey) {
+        const key = cat.filterKey.toLowerCase();
+        filtered = filtered.filter((p: any) => 
+          (p.category && p.category.toLowerCase().includes(key)) ||
+          (p.name && p.name.toLowerCase().includes(cat.name.toLowerCase()))
+        );
+      }
+    }
+
+    if (searchText.trim()) {
+      const query = searchText.toLowerCase();
+      filtered = filtered.filter((p: any) => 
+        (p.name && p.name.toLowerCase().includes(query)) || 
+        (p.category && p.category.toLowerCase().includes(query))
+      );
+    }
+
+    return filtered;
+  }, [products, selectedCategory, searchText]);
 
   const renderProduct = useCallback(({ item }: { item: any }) => {
     // Map Supabase fields to ProductCard format
     const mappedItem = {
       ...item,
-      nameKey: item.name || item.nameKey,
-      image: item.image ? item.image : (item.images && item.images.length > 0 ? { uri: item.images[0] } : images.ajrakBg),
-      artisanKey: item.artisans?.shop_name || item.artisanKey || 'Ghotki Artisan',
+      name: item.name || item.nameKey,
+      image: item.image ? item.image : (item.images && item.images.length > 0 ? item.images[0] : null),
+      artisanKey: item.artisans?.shop_name || item.artisanKey || 'Sindhi Hunar',
     };
 
     return (

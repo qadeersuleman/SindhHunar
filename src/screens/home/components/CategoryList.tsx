@@ -55,7 +55,7 @@ const CategoryList: React.FC<CategoryListProps> = ({
           }`}
           style={{ fontFamily: isSelected ? fonts.poppins.bold : fonts.poppins.medium }}
         >
-          {t(`home.${item.name.toLowerCase()}`)}
+          {t(`home.${item.name.toLowerCase()}`, { defaultValue: item.name })}
         </Text>
       </TouchableOpacity>
     );

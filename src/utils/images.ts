@@ -66,7 +66,7 @@ export const images: ImageAssets = {
   categoryPlaceholder: require('../assets/images/logo.png'),
   
   // Ajrak Pattern Images
-  ajrakPattern1: require('../assets/images/logo.png'),
+  ajrakPattern1: require('../assets/images/Ajrak.png'),
   ajrakPattern2: require('../assets/images/logo.png'),
   ajrakPattern3: require('../assets/images/logo.png'),
   
@@ -79,23 +79,24 @@ export const images: ImageAssets = {
   // Background Images
   backgroundPattern: require('../assets/images/logo.png'),
   splashBackground: require('../assets/images/logo.png'),
+  // Background & Pattern Images
   ajrakBg: require('../assets/images/AjrakBG.jpg'),
   background: require('../assets/images/background.jpg'),
   cardbg: require('../assets/images/cardBg.jpg'),
 
-  // Product Images
+  // Product Images (Cloud Fallbacks)
   ajrak: require('../assets/images/Ajrak.png'),
-  rili: require('../assets/images/Rili.jpg'),
-  topi: require('../assets/images/Topi.jpg'),
-  peda: require('../assets/images/peraa.jpg'),
-  dress: require('../assets/images/Dress.jpg'),
-  sindhiFemaleDress: require('../assets/images/Sindhi_female_dress.jpg'),
-  bags: require('../assets/images/bags.jpg'),
-  book: require('../assets/images/book.jpg'),
-  keychain: require('../assets/images/key chain.jpg'),
-  peraJpg: require('../assets/images/pera.jpg'),
-  sindhiTopi: require('../assets/images/sindhi topi.jpg'),
-  sindhiQuilt: require('../assets/images/sindhi_Quilt.jpg'),
+  rili: require('../assets/images/AjrakBG.jpg'),
+  topi: require('../assets/images/AjrakBG.jpg'),
+  peda: require('../assets/images/cardBg.jpg'),
+  dress: require('../assets/images/AjrakBG.jpg'),
+  sindhiFemaleDress: require('../assets/images/AjrakBG.jpg'),
+  bags: require('../assets/images/cardBg.jpg'),
+  book: require('../assets/images/cardBg.jpg'),
+  keychain: require('../assets/images/cardBg.jpg'),
+  peraJpg: require('../assets/images/cardBg.jpg'),
+  sindhiTopi: require('../assets/images/AjrakBG.jpg'),
+  sindhiQuilt: require('../assets/images/AjrakBG.jpg'),
 };
 
 // Helper function to get image source with fallback
