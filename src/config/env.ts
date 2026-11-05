@@ -22,8 +22,8 @@ export const SUPABASE_URL = EXPO_PUBLIC_SUPABASE_URL || 'https://hypsawmgxqxsgaq
 export const SUPABASE_ANON_KEY = EXPO_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_zcTvi5bpcT51ec9j6LnA6w_5iA5RGIJ';
 
 // Google Auth Configuration
-export const GOOGLE_CLIENT_ID = GOOGLE_WEB_CLIENT_ID || '930569299554-6oiqdgp3mnhsv5m0ju4bporcbvg1b2lr.apps.googleusercontent.com';
-export const MAPS_API_KEY = GOOGLE_MAPS_API_KEY || 'AIzaSyDyCyyqxk0jg1BNHfM4t8jE_XXtRTNiRok';
+export const GOOGLE_CLIENT_ID = GOOGLE_WEB_CLIENT_ID || '';
+export const MAPS_API_KEY = GOOGLE_MAPS_API_KEY || '';
 
 // App Configuration
 export const APP_NAME = 'Sindh Hunar';
