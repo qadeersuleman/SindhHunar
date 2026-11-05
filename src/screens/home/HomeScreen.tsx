@@ -36,7 +36,6 @@ import { fonts, typography } from '../../utils/fonts';
 import { images } from '../../utils/images';
 import { useTranslation } from 'react-i18next';
 import { RESPONSIVE } from '../../utils/responsive';
-import shoppingcartAnimation from '../../assets/animations/shoppingcart.json';
 
 // Components
 import HomeHeader from './components/HomeHeader';

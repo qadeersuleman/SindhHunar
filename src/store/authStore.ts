@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, getCurrentUser, signIn, signUp, signOut, signInWithOtp, verifyOtp, signInWithGoogle } from '../services/supabase/auth';
+import { getCurrentUser, signIn, signUp, signOut, signInWithOtp, verifyOtp, signInWithGoogle } from '../services/supabase/auth';
 import { useAppDispatch, useAppSelector } from './hooks';
 import { setAuth, clearAuth, setInitialLoading } from './slices/authSlice';
 import { useEffect } from 'react';

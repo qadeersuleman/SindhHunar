@@ -66,7 +66,7 @@ export const images: ImageAssets = {
   categoryPlaceholder: require('../assets/images/logo.png'),
   
   // Ajrak Pattern Images
-  ajrakPattern1: require('../assets/images/Ajrak.png'),
+  ajrakPattern1: require('../assets/images/AjrakBG.jpg'),
   ajrakPattern2: require('../assets/images/logo.png'),
   ajrakPattern3: require('../assets/images/logo.png'),
   
@@ -85,7 +85,7 @@ export const images: ImageAssets = {
   cardbg: require('../assets/images/cardBg.jpg'),
 
   // Product Images (Cloud Fallbacks)
-  ajrak: require('../assets/images/Ajrak.png'),
+  ajrak: require('../assets/images/AjrakBG.jpg'),
   rili: require('../assets/images/AjrakBG.jpg'),
   topi: require('../assets/images/AjrakBG.jpg'),
   peda: require('../assets/images/cardBg.jpg'),

@@ -43,25 +43,27 @@ const AppNavigator: React.FC = () => {
   const { data: profile, isLoading: isProfileLoading } = useProfile(
     isAuthenticated ? user?.id : undefined
   );
-
-  // Always show the custom branded splash screen on app launch
+  const { isFirstLaunch, isChecking, markSplashSeen } = useFirstLaunch();
   const [showSplash, setShowSplash] = React.useState(true);
 
-  console.log('[AppNavigator] State:', {
-    hasUser: !!user,
-    isAuthenticated,
-    isInitialized,
-    role: profile?.role,
-    isProfileLoading,
-    showSplash,
-  });
+  // If already checked and user has seen splash before, skip splash screen
+  React.useEffect(() => {
+    if (!isChecking && !isFirstLaunch) {
+      setShowSplash(false);
+    }
+  }, [isChecking, isFirstLaunch]);
 
-  // 1️⃣  Show the custom branded splash screen on startup
-  if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  const handleSplashFinish = React.useCallback(() => {
+    markSplashSeen();
+    setShowSplash(false);
+  }, [markSplashSeen]);
+
+  // 1️⃣ Show branded splash screen on first launch
+  if (showSplash && (isChecking || isFirstLaunch)) {
+    return <SplashScreen onFinish={handleSplashFinish} />;
   }
 
-  // 2️⃣  Auth / Profile initialising → minimal spinner
+  // 2️⃣ Auth / Profile initialising → minimal spinner
   if (!isInitialized || (isAuthenticated && isProfileLoading)) {
     return <AppLoadingScreen />;
   }

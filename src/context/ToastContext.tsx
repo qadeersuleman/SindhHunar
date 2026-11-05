@@ -1,24 +1,10 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, Platform, I18nManager } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../utils/colors';
 import Animated, { 
   FadeOutUp, 
-  FadeInUp,
   FadeInDown,
-  SlideInUp, 
-  SlideOutUp,
-  SlideInDown,
-  SlideOutDown,
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  withSequence,
-  withDelay,
-  withTiming,
-  Layout,
-  EntryAnimationsValues,
-  ExitAnimationsValues
 } from 'react-native-reanimated';
 import { BlurView } from '@react-native-community/blur';
 import Icon from 'react-native-vector-icons/Ionicons';

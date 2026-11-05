@@ -1,5 +1,4 @@
 import { supabase } from './client';
-import type { CartItem } from '../../store/slices/cartSlice';
 
 
 export interface OrderData {

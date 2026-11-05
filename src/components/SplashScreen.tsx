@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, StatusBar, Image } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Image } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -25,8 +25,6 @@ interface SplashScreenProps {
    */
   onFinish?: () => void;
 }
-
-const { width, height } = Dimensions.get('window');
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const bgScale = useSharedValue(1.1);
@@ -55,29 +53,27 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       true
     );
 
-    // Decorative line scale
-    lineScale.value = withDelay(800, withTiming(1, { duration: 1500, easing: Easing.out(Easing.exp) }));
+    // Decorative line scale (snappy entrance)
+    lineScale.value = withDelay(400, withTiming(1, { duration: 800, easing: Easing.out(Easing.exp) }));
 
     // Text letter spacing animation
-    textSpacing.value = withDelay(500, withTiming(8, { duration: 2500, easing: Easing.out(Easing.exp) }));
+    textSpacing.value = withDelay(250, withTiming(8, { duration: 1200, easing: Easing.out(Easing.exp) }));
 
     // Pulse effect
     pulseScale.value = withRepeat(
       withSequence(
-        withTiming(1.05, { duration: 2000 }),
-        withTiming(1, { duration: 2000 })
+        withTiming(1.05, { duration: 1500 }),
+        withTiming(1, { duration: 1500 })
       ),
       -1,
       true
     );
 
     // ─── AUTO-DISMISS ────────────────────────────────────────────────────────
-    // The last visible animation starts at ~2000ms (loader FadeIn.delay(2000)).
-    // We wait 3500ms total so the user sees the full branded intro, then signal
-    // the parent to mark this as "done" and navigate away.
+    // Snappy auto-dismiss so the app doesn't block startup unnecessarily
     const timer = setTimeout(() => {
       onFinish?.();
-    }, 3500);
+    }, 1800);
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps

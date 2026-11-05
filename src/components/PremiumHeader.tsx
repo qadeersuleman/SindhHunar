@@ -4,7 +4,6 @@ import {
   StyleSheet, 
   ImageBackground, 
   StatusBar, 
-  Dimensions,
   ViewStyle
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -14,8 +13,6 @@ import { images } from '../utils/images';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { TouchableOpacity, Text } from 'react-native';
 import { fonts } from '../utils/fonts';
-
-const { width } = Dimensions.get('window');
 
 interface PremiumHeaderProps {
   children: React.ReactNode;
